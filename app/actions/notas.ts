@@ -18,7 +18,14 @@ const metodoToTipo: Record<string, string> = {
 }
 
 export type ImportResult =
-  | { ok: true; notaId: number; totalItens: number; comMatch: number; duplicada?: boolean }
+  | {
+      ok: true
+      notaId: number
+      totalItens: number
+      comMatch: number
+      pendentes: number
+      duplicada?: boolean
+    }
   | { ok: false; error: string }
 
 export async function importNfeXml(xmlContent: string): Promise<ImportResult> {
@@ -44,7 +51,7 @@ export async function importNfeXml(xmlContent: string): Promise<ImportResult> {
       .where(eq(notas.chaveAcesso, header.chave))
       .limit(1)
     if (existing.length) {
-      return { ok: true, notaId: existing[0].id, totalItens: 0, comMatch: 0, duplicada: true }
+      return { ok: true, notaId: existing[0].id, totalItens: 0, comMatch: 0, pendentes: 0, duplicada: true }
     }
   }
 
@@ -127,7 +134,7 @@ export async function importNfeXml(xmlContent: string): Promise<ImportResult> {
 
   revalidatePath("/importar")
   revalidatePath("/conferencia")
-  return { ok: true, notaId: nota.id, totalItens: items.length, comMatch }
+  return { ok: true, notaId: nota.id, totalItens: items.length, comMatch, pendentes: items.length - comMatch }
 }
 
 export type NotaListItem = {
@@ -140,6 +147,7 @@ export type NotaListItem = {
   origem: string
   totalItens: number | null
   itensConferidos: number | null
+  itensPendentes: number
   createdAt: Date
 }
 
@@ -179,6 +187,10 @@ export async function listNotas(params?: { search?: string; status?: string }): 
       origem: notas.origem,
       totalItens: notas.totalItens,
       itensConferidos: notas.itensConferidos,
+      itensPendentes: sql<number>`(
+        select count(*)::int from ${itensNota}
+        where ${itensNota.notaId} = ${notas.id} and ${itensNota.produtoId} is null
+      )`,
       createdAt: notas.createdAt,
     })
     .from(notas)

@@ -3,7 +3,8 @@
 import { useState, useRef, useCallback } from "react"
 import useSWR from "swr"
 import Link from "next/link"
-import { Upload, FileText, Loader2, Trash2, Eye, ClipboardList } from "lucide-react"
+import { Upload, FileText, Loader2, Trash2, Eye, ClipboardList, Link2 } from "lucide-react"
+import { useRouter } from "next/navigation"
 import { toast } from "sonner"
 import { Button } from "@/components/ui/button"
 import { Card } from "@/components/ui/card"
@@ -37,6 +38,7 @@ function fmtCurrency(v: string | null) {
 }
 
 export function ImportManager() {
+  const router = useRouter()
   const [search, setSearch] = useState("")
   const [status, setStatus] = useState("todos")
   const [uploading, setUploading] = useState(false)
@@ -55,7 +57,9 @@ export function ImportManager() {
       let ok = 0
       let dup = 0
       let fail = 0
-      for (const file of Array.from(files)) {
+      const fileArray = Array.from(files)
+      const importadas: { notaId: number; pendentes: number }[] = []
+      for (const file of fileArray) {
         try {
           const text = await file.text()
           const res = await importNfeXml(text)
@@ -64,7 +68,8 @@ export function ImportManager() {
               dup++
             } else {
               ok++
-              toast.success(`${file.name}: ${res.totalItens} itens, ${res.comMatch} com produto vinculado`)
+              importadas.push({ notaId: res.notaId, pendentes: res.pendentes })
+              toast.success(`${file.name}: ${res.totalItens} itens, ${res.comMatch} reconhecido(s)`)
             }
           } else {
             fail++
@@ -78,8 +83,14 @@ export function ImportManager() {
       if (dup) toast.info(`${dup} nota(s) já importada(s) foram ignoradas`)
       setUploading(false)
       mutate()
+
+      // Importou uma única nota nova? Vai direto para a tela de vinculação,
+      // onde o usuário informa os códigos internos e confere todos os dados.
+      if (importadas.length === 1) {
+        router.push(`/importar/${importadas[0].notaId}/vincular`)
+      }
     },
-    [mutate],
+    [mutate, router],
   )
 
   async function handleDelete(id: number) {
@@ -211,6 +222,17 @@ export function ImportManager() {
                             <Link href={`/conferencia/${n.id}`} aria-label="Ver relatório da nota">
                               <ClipboardList className="h-3.5 w-3.5" />
                               Relatório
+                            </Link>
+                          </Button>
+                        ) : n.itensPendentes > 0 ? (
+                          <Button
+                            asChild
+                            size="sm"
+                            className="h-8 gap-1.5 px-2.5 text-xs"
+                          >
+                            <Link href={`/importar/${n.id}/vincular`} aria-label="Vincular produtos da nota">
+                              <Link2 className="h-3.5 w-3.5" />
+                              Vincular ({n.itensPendentes})
                             </Link>
                           </Button>
                         ) : (
