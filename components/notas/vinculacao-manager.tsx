@@ -1,6 +1,6 @@
 "use client"
 
-import { useMemo, useState, useCallback, useRef } from "react"
+import { useMemo, useState, useCallback, useRef, useEffect } from "react"
 import { useRouter } from "next/navigation"
 import Link from "next/link"
 import {
@@ -14,7 +14,9 @@ import {
   AlertTriangle,
   Barcode,
   FileText,
+  Check,
 } from "lucide-react"
+import { cn } from "@/lib/utils"
 import { toast } from "sonner"
 import { Button } from "@/components/ui/button"
 import { Card } from "@/components/ui/card"
@@ -311,143 +313,284 @@ function EtapaVincular({
   preenchidos: number
   onAvancar: () => void
 }) {
-  return (
-    <div className="flex flex-col gap-6">
-      {pendentes.length > 0 ? (
-        <Card>
-          <div className="flex flex-col gap-1 border-b border-border p-4 sm:flex-row sm:items-center sm:justify-between">
-            <div className="flex items-center gap-2">
-              <Search className="h-4 w-4 text-accent-brand" />
-              <h2 className="text-base font-semibold text-foreground">Itens para vincular</h2>
-            </div>
-            <span className="text-sm text-muted-foreground">
-              {preenchidos}/{pendentes.length} preenchido(s)
-              {checking && <Loader2 className="ml-2 inline h-3.5 w-3.5 animate-spin" />}
-            </span>
-          </div>
-          <div className="overflow-x-auto">
-            <Table>
-              <TableHeader>
-                <TableRow>
-                  <TableHead className="min-w-64">Produto na nota</TableHead>
-                  <TableHead>Cód. forn.</TableHead>
-                  <TableHead>EAN</TableHead>
-                  <TableHead className="text-center">Qtd</TableHead>
-                  <TableHead className="text-right">Vlr unit.</TableHead>
-                  <TableHead className="min-w-56">Código interno</TableHead>
-                </TableRow>
-              </TableHeader>
-              <TableBody>
-                {pendentes.map((item) => {
-                  const codigo = (codigos[item.id] ?? "").trim()
-                  const existente = codigo ? lookup[codigo] : undefined
-                  return (
-                    <TableRow key={item.id}>
-                      <TableCell className="font-medium text-foreground">
-                        {item.descricaoFornecedor ?? "—"}
-                        {item.ncm && (
-                          <span className="mt-0.5 block text-xs font-normal text-muted-foreground">
-                            NCM {item.ncm}
-                          </span>
-                        )}
-                      </TableCell>
-                      <TableCell className="font-mono text-xs">{item.codigoFornecedor ?? "—"}</TableCell>
-                      <TableCell className="font-mono text-xs">
-                        {item.ean ? (
-                          <span className="inline-flex items-center gap-1">
-                            <Barcode className="h-3 w-3 text-muted-foreground" />
-                            {item.ean}
-                          </span>
-                        ) : (
-                          "—"
-                        )}
-                      </TableCell>
-                      <TableCell className="text-center tabular-nums">
-                        {fmtQty(item.quantidade)} {item.unidade ?? ""}
-                      </TableCell>
-                      <TableCell className="text-right tabular-nums">{fmtCurrency(item.valorUnitario)}</TableCell>
-                      <TableCell>
-                        <Input
-                          value={codigos[item.id] ?? ""}
-                          onChange={(e) => onCodigoChange(item.id, e.target.value)}
-                          placeholder="Digite o código"
-                          className="h-9 font-mono"
-                          aria-label={`Código interno para ${item.descricaoFornecedor ?? "item"}`}
-                        />
-                        {codigo && (
-                          <div className="mt-1.5 text-xs">
-                            {existente ? (
-                              <span className="inline-flex items-center gap-1 text-emerald-600 dark:text-emerald-400">
-                                <Link2 className="h-3 w-3" />
-                                {existente.descricao}
-                              </span>
-                            ) : (
-                              <span className="inline-flex items-center gap-1 text-accent-brand">
-                                <PackagePlus className="h-3 w-3" />
-                                Novo produto será criado
-                              </span>
-                            )}
-                          </div>
-                        )}
-                      </TableCell>
-                    </TableRow>
-                  )
-                })}
-              </TableBody>
-            </Table>
-          </div>
-        </Card>
-      ) : (
+  const [index, setIndex] = useState(0)
+  const inputRef = useRef<HTMLInputElement>(null)
+
+  const total = pendentes.length
+  const safeIndex = Math.min(index, Math.max(0, total - 1))
+  const todosOk = total === 0 || preenchidos === total
+
+  // Autofoco no campo de código sempre que troca de item.
+  useEffect(() => {
+    inputRef.current?.focus()
+  }, [safeIndex])
+
+  const irAnterior = useCallback(() => setIndex((i) => Math.max(0, i - 1)), [])
+  const irProximo = useCallback(() => {
+    setIndex((i) => (i < total - 1 ? i + 1 : i))
+  }, [total])
+
+  // Nenhum item pendente: tudo reconhecido automaticamente.
+  if (total === 0) {
+    return (
+      <div className="flex flex-col gap-6">
         <Card className="flex items-center gap-3 p-5 text-sm text-muted-foreground">
           <CheckCircle2 className="h-5 w-5 text-emerald-500" />
           Todos os itens já foram reconhecidos automaticamente. Revise na conferência geral.
         </Card>
-      )}
-
-      {jaVinculados.length > 0 && (
-        <Card>
-          <div className="flex items-center gap-2 border-b border-border p-4">
-            <CheckCircle2 className="h-4 w-4 text-emerald-500" />
-            <h2 className="text-base font-semibold text-foreground">
-              Reconhecidos automaticamente ({jaVinculados.length})
-            </h2>
-          </div>
-          <div className="overflow-x-auto">
-            <Table>
-              <TableHeader>
-                <TableRow>
-                  <TableHead className="min-w-64">Produto na nota</TableHead>
-                  <TableHead>Código interno</TableHead>
-                  <TableHead>Produto vinculado</TableHead>
-                  <TableHead>Origem</TableHead>
-                </TableRow>
-              </TableHeader>
-              <TableBody>
-                {jaVinculados.map((item) => (
-                  <TableRow key={item.id}>
-                    <TableCell className="font-medium">{item.descricaoFornecedor ?? "—"}</TableCell>
-                    <TableCell className="font-mono text-xs">{item.produtoCodigoInterno ?? "—"}</TableCell>
-                    <TableCell className="max-w-64 truncate text-muted-foreground">
-                      {item.produtoDescricao ?? "—"}
-                    </TableCell>
-                    <TableCell>
-                      <MatchBadge tipo={item.matchTipo} />
-                    </TableCell>
-                  </TableRow>
-                ))}
-              </TableBody>
-            </Table>
-          </div>
-        </Card>
-      )}
-
-      <div className="flex justify-end">
-        <Button onClick={onAvancar} className="gap-1.5">
-          Conferência geral
-          <ArrowRight className="h-4 w-4" />
-        </Button>
+        {jaVinculados.length > 0 && <ReconhecidosCard jaVinculados={jaVinculados} />}
+        <div className="flex justify-end">
+          <Button onClick={onAvancar} className="gap-1.5">
+            Conferência geral
+            <ArrowRight className="h-4 w-4" />
+          </Button>
+        </div>
       </div>
+    )
+  }
+
+  const item = pendentes[safeIndex]
+  const codigo = (codigos[item.id] ?? "").trim()
+  const existente = codigo ? lookup[codigo] : undefined
+  const itemPreenchido = codigo.length > 0
+
+  return (
+    <div className="flex flex-col gap-6">
+      {/* Progresso */}
+      <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+        <div className="flex-1">
+          <div className="flex items-center justify-between text-sm">
+            <span className="font-medium text-foreground">
+              Item {safeIndex + 1} de {total}
+            </span>
+            <span className="text-muted-foreground">
+              {preenchidos}/{total} preenchido(s)
+              {checking && <Loader2 className="ml-2 inline h-3.5 w-3.5 animate-spin" />}
+            </span>
+          </div>
+          <div className="mt-2 h-1.5 w-full overflow-hidden rounded-full bg-muted">
+            <div
+              className="h-full rounded-full bg-accent-brand transition-all duration-300"
+              style={{ width: `${(preenchidos / total) * 100}%` }}
+            />
+          </div>
+        </div>
+      </div>
+
+      {/* Navegação por itens (bolinhas numeradas) */}
+      <div className="flex flex-wrap gap-1.5">
+        {pendentes.map((it, i) => {
+          const ok = (codigos[it.id] ?? "").trim().length > 0
+          const atual = i === safeIndex
+          return (
+            <button
+              key={it.id}
+              type="button"
+              onClick={() => setIndex(i)}
+              aria-label={`Ir para o item ${i + 1}`}
+              aria-current={atual ? "true" : undefined}
+              className={cn(
+                "flex h-8 w-8 items-center justify-center rounded-md border text-xs font-semibold transition-colors",
+                atual
+                  ? "border-accent-brand bg-accent-brand text-accent-brand-foreground"
+                  : ok
+                    ? "border-emerald-500/40 bg-emerald-500/10 text-emerald-600 dark:text-emerald-400"
+                    : "border-border bg-muted text-muted-foreground hover:bg-accent hover:text-accent-foreground",
+              )}
+            >
+              {ok && !atual ? <Check className="h-4 w-4" /> : i + 1}
+            </button>
+          )
+        })}
+      </div>
+
+      {/* Card guiado: um produto por vez */}
+      <Card className="overflow-hidden">
+        <div className="grid lg:grid-cols-[1.5fr_1fr]">
+          {/* Dados do item da nota */}
+          <div className="border-b border-border p-6 lg:border-b-0 lg:border-r">
+            <div className="flex items-start justify-between gap-3">
+              <div>
+                <span className="text-xs font-medium uppercase tracking-wide text-muted-foreground">
+                  Produto na nota
+                </span>
+                <h3 className="mt-1 text-lg font-semibold leading-snug text-foreground text-balance">
+                  {item.descricaoFornecedor ?? "—"}
+                </h3>
+              </div>
+              {item.ean && (
+                <Badge variant="secondary" className="shrink-0 gap-1 font-mono">
+                  <Barcode className="h-3 w-3" /> {item.ean}
+                </Badge>
+              )}
+            </div>
+            <dl className="mt-6 grid grid-cols-2 gap-x-6 gap-y-4 sm:grid-cols-3">
+              <Campo rotulo="Cód. fornecedor" valor={item.codigoFornecedor ?? "—"} />
+              <Campo rotulo="NCM" valor={item.ncm ?? "—"} />
+              <Campo rotulo="Unidade" valor={item.unidade ?? "—"} />
+              <Campo rotulo="Quantidade" valor={`${fmtQty(item.quantidade)} ${item.unidade ?? ""}`.trim()} />
+              <Campo rotulo="Valor unitário" valor={fmtCurrency(item.valorUnitario)} />
+              <Campo rotulo="Valor total" valor={fmtCurrency(item.valorTotal)} />
+            </dl>
+          </div>
+
+          {/* Código interno + preview */}
+          <div className="flex flex-col gap-4 bg-muted/30 p-6">
+            <div>
+              <label htmlFor="codigo-interno-atual" className="text-sm font-semibold text-foreground">
+                Código interno
+              </label>
+              <p className="mt-0.5 text-xs text-muted-foreground text-pretty">
+                Se o código não existir, o produto é criado automaticamente com os dados da nota.
+              </p>
+              <Input
+                id="codigo-interno-atual"
+                ref={inputRef}
+                value={codigos[item.id] ?? ""}
+                onChange={(e) => onCodigoChange(item.id, e.target.value)}
+                onKeyDown={(e) => {
+                  if (
+                    e.key === "Enter" &&
+                    !e.nativeEvent.isComposing &&
+                    e.keyCode !== 229
+                  ) {
+                    e.preventDefault()
+                    if (safeIndex < total - 1) irProximo()
+                    else onAvancar()
+                  }
+                }}
+                placeholder="Ex.: P1234"
+                autoComplete="off"
+                className="mt-3 h-11 font-mono text-base"
+                aria-label={`Código interno para ${item.descricaoFornecedor ?? "item"}`}
+              />
+            </div>
+
+            <PreviewVinculo codigo={codigo} checking={checking} existente={existente} />
+          </div>
+        </div>
+      </Card>
+
+      {/* Navegação inferior */}
+      <div className="flex items-center justify-between gap-2">
+        <Button variant="outline" onClick={irAnterior} disabled={safeIndex === 0} className="gap-1.5">
+          <ArrowLeft className="h-4 w-4" />
+          Anterior
+        </Button>
+        <div className="flex items-center gap-2">
+          {safeIndex < total - 1 && (
+            <Button
+              variant={todosOk ? "outline" : "default"}
+              onClick={irProximo}
+              disabled={!itemPreenchido}
+              className="gap-1.5"
+            >
+              Próximo
+              <ArrowRight className="h-4 w-4" />
+            </Button>
+          )}
+          <Button onClick={onAvancar} disabled={!todosOk} className="gap-1.5">
+            <CheckCircle2 className="h-4 w-4" />
+            Conferência geral
+          </Button>
+        </div>
+      </div>
+
+      {jaVinculados.length > 0 && <ReconhecidosCard jaVinculados={jaVinculados} />}
     </div>
+  )
+}
+
+function PreviewVinculo({
+  codigo,
+  checking,
+  existente,
+}: {
+  codigo: string
+  checking: boolean
+  existente: ProdutoLookup | undefined
+}) {
+  if (!codigo) {
+    return (
+      <div className="flex items-center gap-2 rounded-lg border border-dashed border-border bg-background/60 p-3 text-sm text-muted-foreground">
+        <Search className="h-4 w-4 shrink-0" />
+        Digite o código interno para continuar.
+      </div>
+    )
+  }
+  if (checking && !existente) {
+    return (
+      <div className="flex items-center gap-2 rounded-lg border border-border bg-background/60 p-3 text-sm text-muted-foreground">
+        <Loader2 className="h-4 w-4 shrink-0 animate-spin" />
+        Verificando código…
+      </div>
+    )
+  }
+  if (existente) {
+    return (
+      <div className="rounded-lg border border-emerald-500/30 bg-emerald-500/10 p-3">
+        <div className="flex items-center gap-1.5 text-sm font-semibold text-emerald-700 dark:text-emerald-400">
+          <Link2 className="h-4 w-4" />
+          Vincular a produto existente
+        </div>
+        <p className="mt-1.5 text-sm font-medium text-foreground">{existente.descricao}</p>
+        <div className="mt-1 flex flex-wrap gap-x-4 gap-y-0.5 text-xs text-muted-foreground">
+          <span className="font-mono">Cód. {existente.codigoInterno}</span>
+          {existente.codigoBarras && <span className="font-mono">EAN {existente.codigoBarras}</span>}
+          {existente.unidade && <span>Un. {existente.unidade}</span>}
+        </div>
+      </div>
+    )
+  }
+  return (
+    <div className="rounded-lg border border-accent-brand/30 bg-accent-brand/10 p-3">
+      <div className="flex items-center gap-1.5 text-sm font-semibold text-accent-brand">
+        <PackagePlus className="h-4 w-4" />
+        Novo produto será criado
+      </div>
+      <p className="mt-1.5 text-sm text-foreground text-pretty">
+        Será cadastrado com a descrição, EAN, NCM, unidade e custo desta nota.
+      </p>
+    </div>
+  )
+}
+
+function ReconhecidosCard({ jaVinculados }: { jaVinculados: VinculacaoItem[] }) {
+  return (
+    <Card>
+      <div className="flex items-center gap-2 border-b border-border p-4">
+        <CheckCircle2 className="h-4 w-4 text-emerald-500" />
+        <h2 className="text-base font-semibold text-foreground">
+          Reconhecidos automaticamente ({jaVinculados.length})
+        </h2>
+      </div>
+      <div className="overflow-x-auto">
+        <Table>
+          <TableHeader>
+            <TableRow>
+              <TableHead className="min-w-64">Produto na nota</TableHead>
+              <TableHead>Código interno</TableHead>
+              <TableHead>Produto vinculado</TableHead>
+              <TableHead>Origem</TableHead>
+            </TableRow>
+          </TableHeader>
+          <TableBody>
+            {jaVinculados.map((item) => (
+              <TableRow key={item.id}>
+                <TableCell className="font-medium">{item.descricaoFornecedor ?? "—"}</TableCell>
+                <TableCell className="font-mono text-xs">{item.produtoCodigoInterno ?? "—"}</TableCell>
+                <TableCell className="max-w-64 truncate text-muted-foreground">
+                  {item.produtoDescricao ?? "—"}
+                </TableCell>
+                <TableCell>
+                  <MatchBadge tipo={item.matchTipo} />
+                </TableCell>
+              </TableRow>
+            ))}
+          </TableBody>
+        </Table>
+      </div>
+    </Card>
   )
 }
 
