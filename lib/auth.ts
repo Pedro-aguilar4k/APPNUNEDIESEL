@@ -25,24 +25,48 @@ export const auth = betterAuth({
     // Sem cadastro publico: apenas o administrador cria contas (plugin admin).
     disableSignUp: true,
   },
-  trustedOrigins: [
-    ...(isDev
-      ? [
-          // Em dev o app pode ser acessado por localhost (qualquer porta),
-          // 127.0.0.1 ou pela URL de preview do v0. Confiamos em todos eles
-          // para evitar erros "Invalid origin" no fluxo de login.
-          "http://localhost:3000",
-          "http://127.0.0.1:3000",
-          "http://localhost:*",
-          "http://127.0.0.1:*",
-        ]
-      : []),
-    ...(process.env.V0_RUNTIME_URL ? [process.env.V0_RUNTIME_URL] : []),
-    ...(process.env.VERCEL_URL ? [`https://${process.env.VERCEL_URL}`] : []),
-    ...(process.env.VERCEL_PROJECT_PRODUCTION_URL
-      ? [`https://${process.env.VERCEL_PROJECT_PRODUCTION_URL}`]
-      : []),
-  ],
+  // Usamos a forma de FUNÇÃO para computar as origens confiáveis a partir da
+  // própria requisição. O app roda atrás do proxy do sandbox (o Host real é um
+  // domínio *.vercel.run, mas o navegador acessa via http://localhost:3000 ou
+  // pela URL de preview https). Confiar na origem/host da própria requisição
+  // garante que o login funcione em qualquer um desses contextos same-origin,
+  // evitando falsos "Invalid origin".
+  trustedOrigins: (request?: Request) => {
+    const origins = new Set<string>()
+
+    // Atenção: o Better Auth também chama esta função na inicializacao do
+    // contexto SEM um request. Por isso todo acesso a headers é opcional.
+    const headers = request?.headers
+
+    const originHeader = headers?.get("origin")
+    if (originHeader && originHeader !== "null") origins.add(originHeader)
+
+    const referer = headers?.get("referer")
+    if (referer) {
+      try {
+        origins.add(new URL(referer).origin)
+      } catch {}
+    }
+
+    // Reconstrói a origem a partir dos headers de proxy / host.
+    const forwardedHost = headers?.get("x-forwarded-host")
+    const host = forwardedHost ?? headers?.get("host")
+    if (host) {
+      const proto = headers?.get("x-forwarded-proto") ?? "https"
+      origins.add(`${proto}://${host}`)
+    }
+
+    // Origens estáticas conhecidas (dev local + deploy).
+    origins.add("http://localhost:3000")
+    origins.add("http://127.0.0.1:3000")
+    if (process.env.V0_RUNTIME_URL) origins.add(process.env.V0_RUNTIME_URL)
+    if (process.env.VERCEL_URL) origins.add(`https://${process.env.VERCEL_URL}`)
+    if (process.env.VERCEL_PROJECT_PRODUCTION_URL) {
+      origins.add(`https://${process.env.VERCEL_PROJECT_PRODUCTION_URL}`)
+    }
+
+    return Array.from(origins)
+  },
   session: {
     expiresIn: 60 * 60 * 12, // 12 horas (igual ao sistema original)
     updateAge: 60 * 60 * 4,
