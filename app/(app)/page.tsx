@@ -1,4 +1,5 @@
 import Link from "next/link"
+import { redirect } from "next/navigation"
 import { requireUser } from "@/lib/session"
 import { ROLE_LABELS, type Role } from "@/lib/permissions"
 import { getDashboardMetrics } from "@/app/actions/dashboard"
@@ -35,6 +36,8 @@ function Kpi({
 
 export default async function DashboardPage() {
   const user = await requireUser()
+  // Vendedor tem acesso mínimo: cai direto nas garantias, não vê o dashboard.
+  if (user.role === "vendedor") redirect("/garantias")
   const m = await getDashboardMetrics()
 
   return (

@@ -1,7 +1,7 @@
 // Papeis e permissoes do sistema de conferencia de NF-e.
 // Portado 1:1 do backend FastAPI original (services/auth.py).
 
-export const ROLES = ["admin", "gerente", "comprador", "estoquista"] as const
+export const ROLES = ["admin", "gerente", "comprador", "estoquista", "vendedor"] as const
 export type Role = (typeof ROLES)[number]
 
 export const ROLE_LABELS: Record<Role, string> = {
@@ -9,6 +9,7 @@ export const ROLE_LABELS: Record<Role, string> = {
   gerente: "Gerente",
   comprador: "Comprador",
   estoquista: "Estoquista",
+  vendedor: "Vendedor",
 }
 
 export const PERMISSIONS = {
@@ -18,6 +19,8 @@ export const PERMISSIONS = {
   gerenciar_cadastros: "gerenciar_cadastros",
   relatorios: "relatorios",
   gerenciar_usuarios: "gerenciar_usuarios",
+  abrir_garantia: "abrir_garantia",
+  gerenciar_garantia: "gerenciar_garantia",
 } as const
 
 export type Permission = (typeof PERMISSIONS)[keyof typeof PERMISSIONS]
@@ -29,6 +32,10 @@ const PERMISSION_ROLES: Record<Permission, Role[]> = {
   gerenciar_cadastros: ["admin", "gerente", "comprador"],
   relatorios: ["admin", "gerente"],
   gerenciar_usuarios: ["admin"],
+  // Somente o vendedor abre tickets e ve "Minhas garantias".
+  abrir_garantia: ["vendedor"],
+  // A equipe interna acompanha e move os tickets no board.
+  gerenciar_garantia: ["admin", "gerente", "comprador", "estoquista"],
 }
 
 export function roleHasPermission(role: string, permission: Permission): boolean {

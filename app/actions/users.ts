@@ -6,7 +6,7 @@ import { user } from "@/lib/db/schema"
 import { headers } from "next/headers"
 import { revalidatePath } from "next/cache"
 import { desc, eq } from "drizzle-orm"
-import { ROLES, type Role } from "@/lib/permissions"
+import { isValidRole, type Role } from "@/lib/permissions"
 
 async function requireAdmin() {
   const session = await auth.api.getSession({ headers: await headers() })
@@ -56,7 +56,7 @@ export async function createUser(input: {
     if (!name || username.length < 3 || input.password.length < 8) {
       return { ok: false, error: "Nome, usuário (mín. 3) e senha (mín. 8) são obrigatórios." }
     }
-    if (!(input.role in ROLES)) {
+    if (!isValidRole(input.role)) {
       return { ok: false, error: "Papel inválido." }
     }
 
@@ -84,7 +84,7 @@ export async function updateUserRole(userId: string, role: Role): Promise<Action
     if (userId === session.user.id) {
       return { ok: false, error: "Você não pode alterar seu próprio papel." }
     }
-    if (!(role in ROLES)) return { ok: false, error: "Papel inválido." }
+    if (!isValidRole(role)) return { ok: false, error: "Papel inválido." }
 
     await auth.api.setRole({
       headers: await headers(),

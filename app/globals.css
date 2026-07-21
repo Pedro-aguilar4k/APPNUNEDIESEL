@@ -378,6 +378,9 @@
   .app-nav-link[data-category="stock"] {
     --category-color: #8a6d1f;
   }
+  .app-nav-link[data-category="warranty"] {
+    --category-color: #2f8f6b;
+  }
   .app-nav-link[data-category="admin"] {
     --category-color: #a84f4f;
   }
@@ -804,6 +807,9 @@
 }
 .dark .app-nav-link[data-category="stock"] {
   --category-color: #e0c268;
+}
+.dark .app-nav-link[data-category="warranty"] {
+  --category-color: #6fd0a6;
 }
 .dark .app-nav-link[data-category="admin"] {
   --category-color: #e58b8b;

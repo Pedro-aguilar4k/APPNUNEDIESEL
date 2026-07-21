@@ -268,3 +268,55 @@ export const relatoriosConferencia = pgTable(
     notaIdIdx: index("relatorios_conferencia_nota_id_idx").on(t.notaId),
   }),
 )
+
+// Solicitacoes de garantia abertas pelos vendedores. Espelha o formulario fisico
+// "Solicitacao de Garantia" da Nune Diesel. O vendedor abre o ticket; a equipe
+// interna acompanha e move entre os status no board de /estoque/garantia.
+export const garantias = pgTable(
+  "garantias",
+  {
+    id: serial("id").primaryKey(),
+    protocolo: text("protocolo").notNull(), // ex.: GAR-000123
+    // Dono do ticket (quem abriu = vendedor). Escopo de "Minhas garantias".
+    vendedorId: text("vendedor_id"),
+    vendedorNome: text("vendedor_nome"),
+    status: text("status").notNull().default("pendente"), // pendente | em_analise | enviado | esperando_retorno
+    // Dados do cliente
+    clienteNome: text("cliente_nome").notNull(),
+    clienteContato: text("cliente_contato"),
+    clienteFone: text("cliente_fone"),
+    clienteEmail: text("cliente_email"),
+    notaNumero: text("nota_numero"),
+    dataCompra: text("data_compra"),
+    loja: text("loja"), // Sama | Laguna | Matrix
+    // Dados do produto
+    pecaNumero: text("peca_numero"),
+    produtoDescricao: text("produto_descricao").notNull(),
+    pecaMarca: text("peca_marca"),
+    veiculo: text("veiculo"),
+    anoModelo: text("ano_modelo"),
+    motor: text("motor"),
+    produtoId: integer("produto_id"),
+    // Informacoes de uso
+    kmInicial: text("km_inicial"),
+    kmDefeito: text("km_defeito"),
+    kmRodado: text("km_rodado"),
+    horasRodadas: text("horas_rodadas"),
+    dataAplicacao: text("data_aplicacao"),
+    dataDefeito: text("data_defeito"),
+    // Defeito
+    descricaoDefeito: text("descricao_defeito").notNull(),
+    // Uso interno
+    analiseTecnica: text("analise_tecnica"),
+    resultado: text("resultado"), // aprovado | reprovado | null
+    observacaoInterna: text("observacao_interna"),
+    createdBy: text("created_by"),
+    createdAt: timestamp("created_at").notNull().defaultNow(),
+    updatedAt: timestamp("updated_at").notNull().defaultNow(),
+  },
+  (t) => ({
+    protocoloIdx: uniqueIndex("garantias_protocolo_idx").on(t.protocolo),
+    vendedorIdx: index("garantias_vendedor_id_idx").on(t.vendedorId),
+    statusIdx: index("garantias_status_idx").on(t.status),
+  }),
+)

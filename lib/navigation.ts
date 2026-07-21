@@ -11,17 +11,18 @@ import {
   Users,
   Boxes,
   ShieldCheck,
+  ShieldPlus,
   type LucideIcon,
 } from "lucide-react"
 
-export type NavCategory = "overview" | "operation" | "intelligence" | "registry" | "admin" | "stock"
+export type NavCategory = "overview" | "operation" | "intelligence" | "registry" | "admin" | "stock" | "warranty"
 
 export type NavItem = {
   href: string
   label: string
   icon: LucideIcon
   permission: Permission
-  group: "operacao" | "estoque" | "cadastros" | "gestao"
+  group: "operacao" | "estoque" | "garantias" | "cadastros" | "gestao"
   category: NavCategory
 }
 
@@ -30,8 +31,11 @@ export const NAV_ITEMS: NavItem[] = [
   { href: "/importar", label: "Importar NF-e", icon: FileInput, permission: "gerenciar_notas", group: "operacao", category: "operation" },
   { href: "/reconhecimento", label: "Reconhecimento", icon: Sparkles, permission: "gerenciar_notas", group: "operacao", category: "intelligence" },
   { href: "/estoque/controle", label: "Controle", icon: Boxes, permission: "conferir", group: "estoque", category: "stock" },
-  { href: "/estoque/garantia", label: "Garantia", icon: ShieldCheck, permission: "conferir", group: "estoque", category: "stock" },
+  { href: "/estoque/garantia", label: "Garantia", icon: ShieldCheck, permission: "gerenciar_garantia", group: "estoque", category: "stock" },
   { href: "/estoque/conferencia", label: "Conferência", icon: ScanBarcode, permission: "conferir", group: "estoque", category: "operation" },
+  // Vendedor (acesso mínimo): só abre e acompanha as próprias garantias.
+  { href: "/garantias", label: "Minhas garantias", icon: ShieldCheck, permission: "abrir_garantia", group: "garantias", category: "warranty" },
+  { href: "/garantias/nova", label: "Abrir garantia", icon: ShieldPlus, permission: "abrir_garantia", group: "garantias", category: "warranty" },
   { href: "/produtos", label: "Produtos", icon: Package, permission: "gerenciar_cadastros", group: "cadastros", category: "registry" },
   { href: "/fornecedores", label: "Fornecedores", icon: Building2, permission: "gerenciar_cadastros", group: "cadastros", category: "registry" },
   { href: "/equivalencias", label: "Equivalências", icon: Link2, permission: "gerenciar_cadastros", group: "cadastros", category: "registry" },
@@ -42,6 +46,7 @@ export const NAV_ITEMS: NavItem[] = [
 export const GROUP_LABELS: Record<NavItem["group"], string> = {
   operacao: "Operação",
   estoque: "Estoque",
+  garantias: "Garantias",
   cadastros: "Cadastros",
   gestao: "Gestão",
 }
