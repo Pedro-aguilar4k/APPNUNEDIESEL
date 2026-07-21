@@ -2,7 +2,7 @@
 
 import { useMemo, useState, useTransition } from "react"
 import { toast } from "sonner"
-import { Plus, Search, PackageSearch, Minus, MapPin, Loader2 } from "lucide-react"
+import { Plus, Search, PackageSearch, Minus, MapPin, Loader2, TriangleAlert } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
@@ -29,64 +29,117 @@ import { cn } from "@/lib/utils"
 export function EsperaManager({ itens }: { itens: EsperaItem[] }) {
   const [busca, setBusca] = useState("")
   const [addOpen, setAddOpen] = useState(false)
+  const [addAlvo, setAddAlvo] = useState<EsperaItem | null>(null)
   const [removerAlvo, setRemoverAlvo] = useState<EsperaItem | null>(null)
   const [pending, startTransition] = useTransition()
 
-  const filtrados = useMemo(() => {
-    const t = busca.trim().toLowerCase()
-    if (!t) return itens
+  const termo = busca.trim().toLowerCase()
+
+  // Resultado(s) da busca: casa por código ou descrição.
+  const encontrados = useMemo(() => {
+    if (!termo) return []
     return itens.filter(
-      (i) => i.codigoInterno.toLowerCase().includes(t) || (i.descricao ?? "").toLowerCase().includes(t),
+      (i) => i.codigoInterno.toLowerCase().includes(termo) || (i.descricao ?? "").toLowerCase().includes(termo),
     )
-  }, [busca, itens])
+  }, [termo, itens])
 
   const totalGeral = itens.reduce((s, i) => s + i.totalUnidades, 0)
 
   return (
-    <div className="flex flex-col gap-5">
-      {/* Barra de busca + ação */}
-      <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
-        <div className="relative w-full sm:max-w-md">
-          <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
-          <Input
-            value={busca}
-            onChange={(e) => setBusca(e.target.value)}
-            placeholder="Pesquisar pelo código do item..."
-            className="pl-9"
-            aria-label="Pesquisar item na espera"
-          />
-        </div>
-        <div className="flex items-center gap-3">
-          <span className="text-sm text-muted-foreground">
-            {itens.length} {itens.length === 1 ? "item" : "itens"} · {totalGeral} un
-          </span>
-          <Button onClick={() => setAddOpen(true)}>
-            <Plus className="mr-1.5 h-4 w-4" />
+    <div className="flex flex-col gap-6">
+      {/* Bloco central: busca + resultado */}
+      <div className="mx-auto flex w-full max-w-2xl flex-col gap-4">
+        <div className="flex flex-col gap-3 sm:flex-row sm:items-center">
+          <div className="relative flex-1">
+            <Search className="pointer-events-none absolute left-4 top-1/2 h-5 w-5 -translate-y-1/2 text-muted-foreground" />
+            <Input
+              value={busca}
+              onChange={(e) => setBusca(e.target.value)}
+              placeholder="Digite o código do item..."
+              className="h-14 pl-12 text-lg font-mono"
+              aria-label="Pesquisar item na espera"
+              autoFocus
+            />
+          </div>
+          <Button size="lg" className="h-14 px-5" onClick={() => setAddOpen(true)}>
+            <Plus className="mr-1.5 h-5 w-5" />
             Adicionar item
           </Button>
         </div>
+
+        {/* Resultado da busca */}
+        {termo && encontrados.length === 0 && (
+          <div className="flex items-center gap-3 rounded-xl border border-destructive/30 bg-destructive/5 px-4 py-4 text-destructive">
+            <TriangleAlert className="h-5 w-5 shrink-0" />
+            <p className="font-medium">Produto não localizado</p>
+          </div>
+        )}
+
+        {termo &&
+          encontrados.map((item) => (
+            <ResultadoCard
+              key={item.id}
+              item={item}
+              onAdicionar={() => setAddAlvo(item)}
+              onRemover={() => setRemoverAlvo(item)}
+            />
+          ))}
       </div>
 
-      {/* Lista */}
-      {filtrados.length === 0 ? (
-        <div className="flex flex-col items-center justify-center gap-3 rounded-lg border border-dashed py-16 text-center">
-          <PackageSearch className="h-10 w-10 text-muted-foreground" />
-          <div>
-            <p className="font-medium">{busca ? "Nenhum item encontrado" : "Espera vazia"}</p>
-            <p className="text-sm text-muted-foreground">
-              {busca ? "Tente outro código." : "Adicione itens que não couberam na locação normal."}
-            </p>
+      {/* Lista simples de todos os itens cadastrados */}
+      <div className="flex flex-col gap-2">
+        <div className="flex items-center justify-between px-1">
+          <p className="text-sm font-medium text-muted-foreground">
+            Itens na espera
+          </p>
+          <span className="text-sm text-muted-foreground">
+            {itens.length} {itens.length === 1 ? "item" : "itens"} · {totalGeral} un
+          </span>
+        </div>
+
+        {itens.length === 0 ? (
+          <div className="flex flex-col items-center justify-center gap-3 rounded-lg border border-dashed py-14 text-center">
+            <PackageSearch className="h-10 w-10 text-muted-foreground" />
+            <div>
+              <p className="font-medium">Espera vazia</p>
+              <p className="text-sm text-muted-foreground">Adicione itens que não couberam na locação normal.</p>
+            </div>
           </div>
-        </div>
-      ) : (
-        <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-3">
-          {filtrados.map((item) => (
-            <EsperaCard key={item.id} item={item} onRemover={() => setRemoverAlvo(item)} />
-          ))}
-        </div>
-      )}
+        ) : (
+          <ul className="divide-y rounded-lg border bg-card">
+            {itens.map((item) => (
+              <li key={item.id}>
+                <button
+                  type="button"
+                  onClick={() => setBusca(item.codigoInterno)}
+                  className="flex w-full items-center gap-3 px-4 py-3 text-left transition-colors hover:bg-muted/50"
+                >
+                  <span className="font-mono text-sm font-semibold text-foreground">{item.codigoInterno}</span>
+                  <span className="min-w-0 flex-1 truncate text-sm text-muted-foreground">
+                    {item.descricao ?? "Sem descrição"}
+                  </span>
+                  <span className="flex items-center gap-1 text-xs text-muted-foreground">
+                    <MapPin className="h-3.5 w-3.5" />
+                    {item.boxPrimario}
+                    {item.boxSecundario ? ` · ${item.boxSecundario}` : ""}
+                  </span>
+                  <span className="w-20 shrink-0 text-right text-sm font-semibold tabular-nums text-foreground">
+                    {item.totalUnidades} un
+                  </span>
+                </button>
+              </li>
+            ))}
+          </ul>
+        )}
+      </div>
 
       <AdicionarDialog open={addOpen} onOpenChange={setAddOpen} pending={pending} startTransition={startTransition} />
+      <AdicionarExistenteDialog
+        item={addAlvo}
+        onOpenChange={(o) => !o && setAddAlvo(null)}
+        pending={pending}
+        startTransition={startTransition}
+      />
       <RemoverDialog
         item={removerAlvo}
         onOpenChange={(o) => !o && setRemoverAlvo(null)}
@@ -97,49 +150,80 @@ export function EsperaManager({ itens }: { itens: EsperaItem[] }) {
   )
 }
 
-function EsperaCard({ item, onRemover }: { item: EsperaItem; onRemover: () => void }) {
+function ResultadoCard({
+  item,
+  onAdicionar,
+  onRemover,
+}: {
+  item: EsperaItem
+  onAdicionar: () => void
+  onRemover: () => void
+}) {
   const r = resumoEmbalagem(item)
-  const isEmbalagem = item.tipo !== "unidade" && item.unidadesPorEmbalagem > 1
   const tipo = item.tipo as EsperaTipo
+  const isEmbalagem = item.tipo !== "unidade" && item.unidadesPorEmbalagem > 1
 
   return (
-    <div className="flex flex-col gap-3 rounded-lg border bg-card p-4">
-      <div className="flex items-start justify-between gap-2">
+    <div className="flex flex-col gap-5 rounded-2xl border bg-card p-6 shadow-sm">
+      {/* Código bem grande + descrição */}
+      <div className="flex items-start justify-between gap-3">
         <div className="min-w-0">
-          <p className="font-mono text-sm font-semibold text-foreground">{item.codigoInterno}</p>
-          <p className="truncate text-xs text-muted-foreground">{item.descricao ?? "Sem descrição no cadastro"}</p>
+          <p className="font-mono text-4xl font-bold leading-none tracking-tight text-foreground sm:text-5xl">
+            {item.codigoInterno}
+          </p>
+          <p className="mt-2 truncate text-sm text-muted-foreground">
+            {item.descricao ?? "Sem descrição no cadastro"}
+          </p>
         </div>
         <Badge variant="secondary" className="shrink-0">
           {ESPERA_TIPO_LABELS[tipo]}
         </Badge>
       </div>
 
-      {/* Saldo: unidades sempre em destaque */}
-      <div className="flex items-baseline gap-2">
-        <span className="text-2xl font-bold tabular-nums text-foreground">{item.totalUnidades}</span>
-        <span className="text-sm text-muted-foreground">unidades</span>
-      </div>
-      {isEmbalagem && (
-        <p className="text-xs text-muted-foreground">
-          {r.embalagens} {r.embalagens === 1 ? ESPERA_TIPO_LABELS[tipo].toLowerCase() : `${ESPERA_TIPO_LABELS[tipo].toLowerCase()}s`}
-          {" de "}
-          {item.unidadesPorEmbalagem} un
-          {r.ultimaParcial && <span className="text-amber-600 dark:text-amber-500"> · última parcial ({r.soltasNaUltima} un)</span>}
-        </p>
-      )}
-
-      {/* Boxes */}
-      <div className="flex flex-wrap items-center gap-1.5 text-xs">
-        <MapPin className="h-3.5 w-3.5 text-muted-foreground" />
-        <span className="rounded bg-muted px-1.5 py-0.5 font-medium text-foreground">{item.boxPrimario}</span>
-        {item.boxSecundario && (
-          <span className="rounded bg-muted/60 px-1.5 py-0.5 text-muted-foreground">{item.boxSecundario}</span>
+      {/* Quantidade */}
+      <div>
+        <div className="flex items-baseline gap-2">
+          <span className="text-3xl font-bold tabular-nums text-foreground">{item.totalUnidades}</span>
+          <span className="text-base text-muted-foreground">unidades</span>
+        </div>
+        {isEmbalagem && (
+          <p className="mt-1 text-sm text-muted-foreground">
+            {r.embalagens}{" "}
+            {r.embalagens === 1
+              ? ESPERA_TIPO_LABELS[tipo].toLowerCase()
+              : `${ESPERA_TIPO_LABELS[tipo].toLowerCase()}s`}{" "}
+            de {item.unidadesPorEmbalagem} un
+            {r.ultimaParcial && (
+              <span className="text-amber-600 dark:text-amber-500"> · última parcial ({r.soltasNaUltima} un)</span>
+            )}
+          </p>
         )}
       </div>
 
-      <div className="mt-1 flex items-center gap-2">
-        <Button variant="outline" size="sm" className="flex-1" onClick={onRemover}>
-          <Minus className="mr-1 h-3.5 w-3.5" />
+      {/* Localização */}
+      <div className="flex flex-wrap items-center gap-2">
+        <span className="flex items-center gap-1 text-sm text-muted-foreground">
+          <MapPin className="h-4 w-4" />
+          Localização:
+        </span>
+        <span className="rounded-md bg-muted px-2 py-1 text-sm font-semibold text-foreground">{item.boxPrimario}</span>
+        {item.boxSecundario && (
+          <span className="rounded-md bg-muted/60 px-2 py-1 text-sm text-muted-foreground">{item.boxSecundario}</span>
+        )}
+      </div>
+
+      {/* Ações: verde adiciona, vermelho remove */}
+      <div className="flex items-center gap-3 pt-1">
+        <Button
+          size="lg"
+          className="flex-1 bg-emerald-600 text-white hover:bg-emerald-700"
+          onClick={onAdicionar}
+        >
+          <Plus className="mr-1.5 h-5 w-5" />
+          Adicionar
+        </Button>
+        <Button size="lg" variant="destructive" className="flex-1" onClick={onRemover}>
+          <Minus className="mr-1.5 h-5 w-5" />
           Remover
         </Button>
       </div>
@@ -166,9 +250,7 @@ function AdicionarDialog({
   const [quantidade, setQuantidade] = useState("")
 
   const isEmbalagem = tipo !== "unidade"
-  const previewUnidades = isEmbalagem
-    ? (Number(quantidade) || 0) * (Number(upe) || 0)
-    : Number(quantidade) || 0
+  const previewUnidades = isEmbalagem ? (Number(quantidade) || 0) * (Number(upe) || 0) : Number(quantidade) || 0
 
   function reset() {
     setCodigo("")
@@ -298,6 +380,100 @@ function AdicionarDialog({
   )
 }
 
+// Adiciona mais unidades a um item que já existe (botão verde do resultado).
+// Reutiliza a embalagem já cadastrada do item; só pede a quantidade.
+function AdicionarExistenteDialog({
+  item,
+  onOpenChange,
+  pending,
+  startTransition,
+}: {
+  item: EsperaItem | null
+  onOpenChange: (o: boolean) => void
+  pending: boolean
+  startTransition: (cb: () => void) => void
+}) {
+  const [quantidade, setQuantidade] = useState("")
+
+  const tipo = (item?.tipo ?? "unidade") as EsperaTipo
+  const isEmbalagem = !!item && item.tipo !== "unidade" && item.unidadesPorEmbalagem > 1
+  const previewUnidades = isEmbalagem ? (Number(quantidade) || 0) * item!.unidadesPorEmbalagem : Number(quantidade) || 0
+
+  function submit() {
+    if (!item) return
+    startTransition(async () => {
+      const res = await adicionarEspera({
+        codigoInterno: item.codigoInterno,
+        boxPrimario: item.boxPrimario,
+        boxSecundario: item.boxSecundario ?? undefined,
+        tipo,
+        unidadesPorEmbalagem: item.unidadesPorEmbalagem,
+        quantidade: Number(quantidade),
+      })
+      if (res.ok) {
+        toast.success(`${previewUnidades} un adicionadas a ${item.codigoInterno}`)
+        setQuantidade("")
+        onOpenChange(false)
+      } else {
+        toast.error(res.error)
+      }
+    })
+  }
+
+  return (
+    <Dialog open={!!item} onOpenChange={(o) => (o ? undefined : (setQuantidade(""), onOpenChange(o)))}>
+      <DialogContent className="sm:max-w-md">
+        <DialogHeader>
+          <DialogTitle>Adicionar unidades</DialogTitle>
+          <DialogDescription>
+            {item && (
+              <>
+                <span className="font-mono font-semibold text-foreground">{item.codigoInterno}</span> — saldo atual:{" "}
+                {item.totalUnidades} un.{" "}
+                {isEmbalagem && `Cada ${ESPERA_TIPO_LABELS[tipo].toLowerCase()} tem ${item.unidadesPorEmbalagem} un.`}
+              </>
+            )}
+          </DialogDescription>
+        </DialogHeader>
+
+        <div className="grid gap-2">
+          <Label htmlFor="esp-add-existente">
+            Quantidade {isEmbalagem ? `(em ${ESPERA_TIPO_LABELS[tipo].toLowerCase()}s)` : "(unidades)"}
+          </Label>
+          <Input
+            id="esp-add-existente"
+            type="number"
+            min={1}
+            value={quantidade}
+            onChange={(e) => setQuantidade(e.target.value)}
+            placeholder={isEmbalagem ? "Ex.: 2" : "Ex.: 10"}
+            autoFocus
+          />
+          {isEmbalagem && previewUnidades > 0 && (
+            <p className="text-sm text-muted-foreground">
+              Total adicionado: <span className="font-semibold text-foreground">{previewUnidades} un</span>
+            </p>
+          )}
+        </div>
+
+        <DialogFooter>
+          <Button variant="outline" onClick={() => onOpenChange(false)} disabled={pending}>
+            Cancelar
+          </Button>
+          <Button
+            className="bg-emerald-600 text-white hover:bg-emerald-700"
+            onClick={submit}
+            disabled={pending || (Number(quantidade) || 0) < 1}
+          >
+            {pending && <Loader2 className="mr-1.5 h-4 w-4 animate-spin" />}
+            Adicionar
+          </Button>
+        </DialogFooter>
+      </DialogContent>
+    </Dialog>
+  )
+}
+
 function RemoverDialog({
   item,
   onOpenChange,
@@ -320,7 +496,9 @@ function RemoverDialog({
     startTransition(async () => {
       const res = await removerUnidadesEspera(item.id, qtd)
       if (res.ok) {
-        toast.success(res.zerado ? `${item.codigoInterno} zerado e removido da espera` : `${qtd} un removidas de ${item.codigoInterno}`)
+        toast.success(
+          res.zerado ? `${item.codigoInterno} zerado e removido da espera` : `${qtd} un removidas de ${item.codigoInterno}`,
+        )
         setUnidades("")
         onOpenChange(false)
       } else {
