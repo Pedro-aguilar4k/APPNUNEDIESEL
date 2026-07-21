@@ -2,7 +2,8 @@
 
 import { useMemo, useState, useTransition } from "react"
 import { toast } from "sonner"
-import { Plus, Search, PackageSearch, Minus, MapPin, Loader2, TriangleAlert } from "lucide-react"
+import * as XLSX from "xlsx"
+import { Plus, Search, PackageSearch, Minus, MapPin, Loader2, TriangleAlert, FileDown } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
@@ -45,11 +46,66 @@ export function EsperaManager({ itens }: { itens: EsperaItem[] }) {
 
   const totalGeral = itens.reduce((s, i) => s + i.totalUnidades, 0)
 
+  // Gera e baixa uma planilha .xlsx com todos os itens da espera.
+  function exportarExcel() {
+    if (itens.length === 0) {
+      toast.error("Não há itens na espera para exportar.")
+      return
+    }
+    const linhas = itens.map((item) => {
+      const r = resumoEmbalagem(item)
+      return {
+        "Código": item.codigoInterno,
+        "Descrição": item.descricao ?? "",
+        "Total (un)": item.totalUnidades,
+        "Guardado como": ESPERA_TIPO_LABELS[item.tipo as EsperaTipo],
+        "Un. por embalagem": item.unidadesPorEmbalagem,
+        "Embalagens": item.tipo === "unidade" ? "" : r.embalagens,
+        "Última parcial (un)": r.ultimaParcial ? r.soltasNaUltima : "",
+        "Box primário": item.boxPrimario,
+        "Box secundário": item.boxSecundario ?? "",
+      }
+    })
+    const ws = XLSX.utils.json_to_sheet(linhas)
+    ws["!cols"] = [
+      { wch: 14 },
+      { wch: 34 },
+      { wch: 11 },
+      { wch: 14 },
+      { wch: 16 },
+      { wch: 11 },
+      { wch: 18 },
+      { wch: 14 },
+      { wch: 14 },
+    ]
+    const wb = XLSX.utils.book_new()
+    XLSX.utils.book_append_sheet(wb, ws, "Espera")
+    const data = new Date().toISOString().slice(0, 10)
+    XLSX.writeFile(wb, `espera-${data}.xlsx`)
+    toast.success("Planilha da espera gerada.")
+  }
+
   return (
     <div className="flex flex-col gap-6">
-      {/* Bloco central: busca + resultado */}
+      {/* Bloco central: ações + busca + resultado */}
       <div className="mx-auto flex w-full max-w-2xl flex-col gap-4">
-        <div className="flex flex-col gap-3 sm:flex-row sm:items-center">
+        {/* Ações acima da busca */}
+        <div className="flex flex-col gap-2 sm:flex-row sm:justify-end">
+          <Button variant="outline" onClick={exportarExcel}>
+            <FileDown className="mr-1.5 h-4 w-4" />
+            Exportar para Excel
+          </Button>
+          <Button onClick={() => setAddOpen(true)}>
+            <Plus className="mr-1.5 h-4 w-4" />
+            Adicionar item
+          </Button>
+        </div>
+
+        {/* Barra de busca com botão Buscar */}
+        <form
+          onSubmit={(e) => e.preventDefault()}
+          className="flex flex-col gap-3 sm:flex-row sm:items-center"
+        >
           <div className="relative flex-1">
             <Search className="pointer-events-none absolute left-4 top-1/2 h-5 w-5 -translate-y-1/2 text-muted-foreground" />
             <Input
@@ -61,11 +117,11 @@ export function EsperaManager({ itens }: { itens: EsperaItem[] }) {
               autoFocus
             />
           </div>
-          <Button size="lg" className="h-14 px-5" onClick={() => setAddOpen(true)}>
-            <Plus className="mr-1.5 h-5 w-5" />
-            Adicionar item
+          <Button type="submit" size="lg" className="h-14 px-6">
+            <Search className="mr-1.5 h-5 w-5" />
+            Buscar
           </Button>
-        </div>
+        </form>
 
         {/* Resultado da busca */}
         {termo && encontrados.length === 0 && (
