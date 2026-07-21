@@ -2,7 +2,7 @@
 
 import { db } from "@/lib/db"
 import { garantias } from "@/lib/db/schema"
-import { desc, eq, sql } from "drizzle-orm"
+import { desc, eq } from "drizzle-orm"
 import { requirePermission } from "@/lib/guards"
 import { revalidatePath } from "next/cache"
 import { GARANTIA_STATUS, type GarantiaStatus, type Garantia, type NovaGarantiaInput } from "@/lib/garantias"
@@ -12,15 +12,6 @@ type GarantiaResult = { ok: true; protocolo: string } | { ok: false; error: stri
 function clean(v?: string | null): string | null {
   const t = (v ?? "").trim()
   return t.length ? t : null
-}
-
-/** Gera um protocolo sequencial legível: GAR-000123. */
-async function gerarProtocolo(): Promise<string> {
-  const [{ max }] = await db
-    .select({ max: sql<number>`coalesce(max(${garantias.id}), 0)` })
-    .from(garantias)
-  const proximo = Number(max) + 1
-  return `GAR-${String(proximo).padStart(6, "0")}`
 }
 
 /** Vendedor abre um ticket de garantia. O dono é sempre o usuário logado. */
@@ -36,35 +27,41 @@ export async function abrirGarantia(input: NovaGarantiaInput): Promise<GarantiaR
     if (!produtoDescricao) return { ok: false, error: "Informe a descrição da peça/produto." }
     if (!descricaoDefeito) return { ok: false, error: "Descreva o defeito apresentado." }
 
-    const protocolo = await gerarProtocolo()
+    // O protocolo é derivado do id (serial atômico) para evitar condição de corrida
+    // entre aberturas simultâneas. Insere com placeholder e atualiza com o id real.
+    const [inserida] = await db
+      .insert(garantias)
+      .values({
+        protocolo: "",
+        vendedorId: actor.id,
+        vendedorNome: actor.name,
+        status: "pendente",
+        clienteNome,
+        clienteContato: clean(input.clienteContato),
+        clienteFone: clean(input.clienteFone),
+        clienteEmail: clean(input.clienteEmail),
+        notaNumero: clean(input.notaNumero),
+        dataCompra: clean(input.dataCompra),
+        loja: clean(input.loja),
+        pecaNumero: clean(input.pecaNumero),
+        produtoDescricao,
+        pecaMarca: clean(input.pecaMarca),
+        veiculo: clean(input.veiculo),
+        anoModelo: clean(input.anoModelo),
+        motor: clean(input.motor),
+        kmInicial: clean(input.kmInicial),
+        kmDefeito: clean(input.kmDefeito),
+        kmRodado: clean(input.kmRodado),
+        horasRodadas: clean(input.horasRodadas),
+        dataAplicacao: clean(input.dataAplicacao),
+        dataDefeito: clean(input.dataDefeito),
+        descricaoDefeito,
+        createdBy: actor.id,
+      })
+      .returning({ id: garantias.id })
 
-    await db.insert(garantias).values({
-      protocolo,
-      vendedorId: actor.id,
-      vendedorNome: actor.name,
-      status: "pendente",
-      clienteNome,
-      clienteContato: clean(input.clienteContato),
-      clienteFone: clean(input.clienteFone),
-      clienteEmail: clean(input.clienteEmail),
-      notaNumero: clean(input.notaNumero),
-      dataCompra: clean(input.dataCompra),
-      loja: clean(input.loja),
-      pecaNumero: clean(input.pecaNumero),
-      produtoDescricao,
-      pecaMarca: clean(input.pecaMarca),
-      veiculo: clean(input.veiculo),
-      anoModelo: clean(input.anoModelo),
-      motor: clean(input.motor),
-      kmInicial: clean(input.kmInicial),
-      kmDefeito: clean(input.kmDefeito),
-      kmRodado: clean(input.kmRodado),
-      horasRodadas: clean(input.horasRodadas),
-      dataAplicacao: clean(input.dataAplicacao),
-      dataDefeito: clean(input.dataDefeito),
-      descricaoDefeito,
-      createdBy: actor.id,
-    })
+    const protocolo = `GAR-${String(inserida.id).padStart(6, "0")}`
+    await db.update(garantias).set({ protocolo }).where(eq(garantias.id, inserida.id))
 
     revalidatePath("/garantias")
     revalidatePath("/estoque/garantia")

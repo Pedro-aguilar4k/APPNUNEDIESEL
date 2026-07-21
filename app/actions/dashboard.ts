@@ -22,8 +22,8 @@ export type DashboardMetrics = {
     numero: string | null
     fornecedorNome: string | null
     status: string
-    totalItens: number
-    itensConferidos: number
+    totalItens: number | null
+    itensConferidos: number | null
     createdAt: Date
   }[]
 }

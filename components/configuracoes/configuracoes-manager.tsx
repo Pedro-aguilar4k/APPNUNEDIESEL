@@ -3,28 +3,15 @@
 import { useState, useEffect, useTransition } from "react"
 import { toast } from "sonner"
 import { useTheme } from "next-themes"
-import { Sun, Moon, Monitor, User, Lock, Palette, Bell, Boxes, Loader2 } from "lucide-react"
+import { Sun, Moon, Monitor, User, Lock, Palette, Bell, Loader2 } from "lucide-react"
 import { authClient } from "@/lib/auth-client"
 import { savePreferencias } from "@/app/actions/preferencias"
-import {
-  ITENS_POR_PAGINA_OPCOES,
-  LOJAS,
-  type PreferenciasInput,
-} from "@/lib/preferencias"
-import { ESPERA_TIPOS, ESPERA_TIPO_LABELS, type EsperaTipo } from "@/lib/espera"
+import { type PreferenciasInput } from "@/lib/preferencias"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import { Switch } from "@/components/ui/switch"
-import { Separator } from "@/components/ui/separator"
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from "@/components/ui/select"
 import { cn } from "@/lib/utils"
 
 type Props = {
@@ -315,85 +302,6 @@ function PreferenciasCard({ inicial }: { inicial: PreferenciasInput }) {
           checked={prefs.notifResumoDiario}
           onChange={(v) => set("notifResumoDiario", v)}
         />
-
-        <Separator />
-
-        <div className="flex items-center gap-2">
-          <Boxes className="h-5 w-5 text-muted-foreground" />
-          <h3 className="text-sm font-semibold text-foreground">Padrões de estoque</h3>
-        </div>
-
-        <div className="grid gap-4 sm:grid-cols-2">
-          <div className="flex flex-col gap-1.5">
-            <Label htmlFor="pref-alerta">Alerta de estoque mínimo</Label>
-            <Input
-              id="pref-alerta"
-              type="number"
-              min={0}
-              value={prefs.estoqueAlertaMinimo}
-              onChange={(e) => set("estoqueAlertaMinimo", Number(e.target.value))}
-            />
-            <p className="text-xs text-muted-foreground">Abaixo desta quantidade, o item é sinalizado.</p>
-          </div>
-
-          <div className="flex flex-col gap-1.5">
-            <Label htmlFor="pref-itens">Itens por página</Label>
-            <Select
-              value={String(prefs.itensPorPagina)}
-              onValueChange={(v) => set("itensPorPagina", Number(v))}
-            >
-              <SelectTrigger id="pref-itens">
-                <SelectValue />
-              </SelectTrigger>
-              <SelectContent>
-                {ITENS_POR_PAGINA_OPCOES.map((n) => (
-                  <SelectItem key={n} value={String(n)}>
-                    {n} itens
-                  </SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
-          </div>
-
-          <div className="flex flex-col gap-1.5">
-            <Label htmlFor="pref-espera">Embalagem padrão na espera</Label>
-            <Select
-              value={prefs.esperaTipoPadrao}
-              onValueChange={(v) => set("esperaTipoPadrao", v)}
-            >
-              <SelectTrigger id="pref-espera">
-                <SelectValue />
-              </SelectTrigger>
-              <SelectContent>
-                {ESPERA_TIPOS.map((t) => (
-                  <SelectItem key={t} value={t}>
-                    {ESPERA_TIPO_LABELS[t as EsperaTipo]}
-                  </SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
-          </div>
-
-          <div className="flex flex-col gap-1.5">
-            <Label htmlFor="pref-loja">Loja padrão nas garantias</Label>
-            <Select
-              value={prefs.garantiaLojaPadrao ?? "nenhuma"}
-              onValueChange={(v) => set("garantiaLojaPadrao", v === "nenhuma" ? null : v)}
-            >
-              <SelectTrigger id="pref-loja">
-                <SelectValue />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="nenhuma">Nenhuma</SelectItem>
-                {LOJAS.map((l) => (
-                  <SelectItem key={l} value={l}>
-                    {l}
-                  </SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
-          </div>
-        </div>
 
         <div>
           <Button onClick={salvar} disabled={pending}>
