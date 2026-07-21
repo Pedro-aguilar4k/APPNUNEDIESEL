@@ -233,7 +233,7 @@ export function VinculacaoManager({
           `Vinculação salva: ${res.vinculados} item(ns) vinculado(s)` +
             (res.criados ? `, ${res.criados} produto(s) criado(s).` : "."),
         )
-        router.push(`/conferencia/${nota.id}`)
+        router.push(`/estoque/conferencia/${nota.id}`)
       } else {
         toast.error(res.error)
       }

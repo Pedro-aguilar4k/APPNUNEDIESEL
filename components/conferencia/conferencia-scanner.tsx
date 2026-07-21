@@ -272,7 +272,7 @@ export function ConferenciaScanner({ initial, canBind }: { initial: ConferenciaD
     <div className="flex flex-col gap-6">
       <div className="flex flex-col gap-2">
         <Button asChild variant="ghost" size="sm" className="w-fit -ml-2 text-muted-foreground">
-          <Link href="/conferencia">
+          <Link href="/estoque/conferencia">
             <ArrowLeft className="mr-1.5 h-4 w-4" />
             Voltar
           </Link>

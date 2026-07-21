@@ -89,7 +89,7 @@ export function ConferenciaList() {
                 <div className="flex items-center justify-between">
                   <span className="text-xs text-muted-foreground">Emissão {fmtDate(n.dataEmissao)}</span>
                   <Button asChild size="sm">
-                    <Link href={`/conferencia/${n.id}`}>
+                    <Link href={`/estoque/conferencia/${n.id}`}>
                       <ScanLine className="mr-1.5 h-4 w-4" />
                       Conferir
                       <ArrowRight className="ml-1.5 h-4 w-4" />

@@ -109,7 +109,7 @@ export default async function DashboardPage() {
             <CardDescription>Notas importadas recentemente</CardDescription>
           </div>
           <Link
-            href="/conferencia"
+            href="/estoque/conferencia"
             className="inline-flex items-center gap-1 text-sm font-medium text-primary hover:underline"
           >
             Ver conferência <ArrowRight className="h-4 w-4" aria-hidden="true" />

@@ -219,7 +219,7 @@ export function ImportManager() {
                             variant="outline"
                             className="h-8 gap-1.5 px-2.5 text-xs"
                           >
-                            <Link href={`/conferencia/${n.id}`} aria-label="Ver relatório da nota">
+                            <Link href={`/estoque/conferencia/${n.id}`} aria-label="Ver relatório da nota">
                               <ClipboardList className="h-3.5 w-3.5" />
                               Relatório
                             </Link>
@@ -237,7 +237,7 @@ export function ImportManager() {
                           </Button>
                         ) : (
                           <Button asChild size="icon" variant="ghost" className="h-8 w-8">
-                            <Link href={`/conferencia/${n.id}`} aria-label="Conferir nota">
+                            <Link href={`/estoque/conferencia/${n.id}`} aria-label="Conferir nota">
                               <Eye className="h-4 w-4" />
                             </Link>
                           </Button>

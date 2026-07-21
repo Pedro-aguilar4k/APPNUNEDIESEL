@@ -12,8 +12,11 @@ import type { SessionUser } from "@/lib/session"
 const ROUTE_TITLES: { match: RegExp; eyebrow: string; title: string }[] = [
   { match: /^\/$/, eyebrow: "Central operacional", title: "Visão geral" },
   { match: /^\/importar/, eyebrow: "Recebimento", title: "Importar NF-e" },
-  { match: /^\/conferencia/, eyebrow: "Operação", title: "Conferência" },
   { match: /^\/reconhecimento/, eyebrow: "Inteligência", title: "Reconhecimento" },
+  { match: /^\/estoque\/controle/, eyebrow: "Estoque", title: "Controle" },
+  { match: /^\/estoque\/garantia/, eyebrow: "Estoque", title: "Garantia" },
+  { match: /^\/(estoque\/conferencia|conferencia)/, eyebrow: "Estoque", title: "Conferência" },
+  { match: /^\/estoque/, eyebrow: "Estoque", title: "Estoque" },
   { match: /^\/produtos/, eyebrow: "Cadastros", title: "Produtos" },
   { match: /^\/fornecedores/, eyebrow: "Cadastros", title: "Fornecedores" },
   { match: /^\/equivalencias/, eyebrow: "Cadastros", title: "Equivalências" },

@@ -375,6 +375,9 @@
   .app-nav-link[data-category="registry"] {
     --category-color: #356c9b;
   }
+  .app-nav-link[data-category="stock"] {
+    --category-color: #8a6d1f;
+  }
   .app-nav-link[data-category="admin"] {
     --category-color: #a84f4f;
   }
@@ -798,6 +801,9 @@
 }
 .dark .app-nav-link[data-category="registry"] {
   --category-color: #83b7df;
+}
+.dark .app-nav-link[data-category="stock"] {
+  --category-color: #e0c268;
 }
 .dark .app-nav-link[data-category="admin"] {
   --category-color: #e58b8b;
