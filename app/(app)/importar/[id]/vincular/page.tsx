@@ -1,7 +1,7 @@
 import { requireUser } from "@/lib/session"
 import { redirect } from "next/navigation"
 import { roleHasPermission } from "@/lib/permissions"
-import { getVinculacaoData } from "@/app/actions/vinculacao"
+import { getVinculacaoData, listCompradores } from "@/app/actions/vinculacao"
 import { VinculacaoManager } from "@/components/notas/vinculacao-manager"
 
 export default async function VincularPage({ params }: { params: Promise<{ id: string }> }) {
@@ -12,8 +12,8 @@ export default async function VincularPage({ params }: { params: Promise<{ id: s
   const notaId = Number(id)
   if (!Number.isFinite(notaId)) redirect("/importar")
 
-  const data = await getVinculacaoData(notaId)
+  const [data, compradores] = await Promise.all([getVinculacaoData(notaId), listCompradores()])
   if (!data) redirect("/importar")
 
-  return <VinculacaoManager data={data} />
+  return <VinculacaoManager data={data} compradores={compradores} />
 }

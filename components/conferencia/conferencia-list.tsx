@@ -3,7 +3,7 @@
 import { useState } from "react"
 import useSWR from "swr"
 import Link from "next/link"
-import { ScanLine, ArrowRight } from "lucide-react"
+import { ScanLine, ArrowRight, User } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { Card } from "@/components/ui/card"
 import { Progress } from "@/components/ui/progress"
@@ -66,6 +66,12 @@ export function ConferenciaList() {
                       {n.numero ? `Nota Nº ${n.numero}` : `Nota #${n.id}`}
                     </p>
                     <p className="truncate text-sm text-muted-foreground">{n.fornecedorNome ?? "Sem fornecedor"}</p>
+                    {n.importadoPor && (
+                      <p className="mt-0.5 inline-flex items-center gap-1 truncate text-xs text-muted-foreground">
+                        <User className="h-3 w-3 shrink-0" />
+                        {n.importadoPor}
+                      </p>
+                    )}
                   </div>
                   <NotaStatusBadge status={n.status} />
                 </div>

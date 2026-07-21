@@ -15,6 +15,10 @@ import {
   Barcode,
   FileText,
   Check,
+  RotateCcw,
+  Truck,
+  Minus,
+  Plus,
 } from "lucide-react"
 import { cn } from "@/lib/utils"
 import { toast } from "sonner"
@@ -22,6 +26,15 @@ import { Button } from "@/components/ui/button"
 import { Card } from "@/components/ui/card"
 import { Input } from "@/components/ui/input"
 import { Badge } from "@/components/ui/badge"
+import { Switch } from "@/components/ui/switch"
+import { Textarea } from "@/components/ui/textarea"
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select"
 import {
   Table,
   TableBody,
@@ -36,6 +49,7 @@ import {
   type VinculacaoData,
   type VinculacaoItem,
   type ProdutoLookup,
+  type Comprador,
 } from "@/app/actions/vinculacao"
 
 function fmtDate(d: Date | string | null) {
@@ -54,7 +68,13 @@ function fmtQty(v: string | null) {
 
 type Etapa = "vincular" | "conferencia"
 
-export function VinculacaoManager({ data }: { data: VinculacaoData }) {
+export function VinculacaoManager({
+  data,
+  compradores,
+}: {
+  data: VinculacaoData
+  compradores: Comprador[]
+}) {
   const router = useRouter()
   const { nota, itens } = data
 
@@ -68,6 +88,33 @@ export function VinculacaoManager({ data }: { data: VinculacaoData }) {
 
   // Código interno digitado por item (itemId -> código).
   const [codigos, setCodigos] = useState<Record<number, string>>({})
+
+  // Campos extras por item (definidos na vinculação).
+  const [devolucoes, setDevolucoes] = useState<Record<number, boolean>>(() =>
+    Object.fromEntries(itens.map((i) => [i.id, i.devolucao])),
+  )
+  const [compradorSel, setCompradorSel] = useState<Record<number, string>>(() =>
+    Object.fromEntries(itens.map((i) => [i.id, i.compradorId ?? ""])),
+  )
+  const [quantidades, setQuantidades] = useState<Record<number, string>>(() =>
+    Object.fromEntries(itens.map((i) => [i.id, i.quantidade])),
+  )
+  const [justificativas, setJustificativas] = useState<Record<number, string>>(() =>
+    Object.fromEntries(itens.map((i) => [i.id, i.justificativaQuantidade ?? ""])),
+  )
+
+  const setDevolucao = useCallback((itemId: number, v: boolean) => {
+    setDevolucoes((prev) => ({ ...prev, [itemId]: v }))
+  }, [])
+  const setComprador = useCallback((itemId: number, v: string) => {
+    setCompradorSel((prev) => ({ ...prev, [itemId]: v }))
+  }, [])
+  const setQuantidade = useCallback((itemId: number, v: string) => {
+    setQuantidades((prev) => ({ ...prev, [itemId]: v }))
+  }, [])
+  const setJustificativa = useCallback((itemId: number, v: string) => {
+    setJustificativas((prev) => ({ ...prev, [itemId]: v }))
+  }, [])
   // Preview de produtos existentes por código interno.
   const [lookup, setLookup] = useState<Record<string, ProdutoLookup>>({})
   const [checking, setChecking] = useState(false)
@@ -114,9 +161,25 @@ export function VinculacaoManager({ data }: { data: VinculacaoData }) {
   const pendentesPreenchidos = pendentes.filter((i) => (codigos[i.id] ?? "").trim().length > 0).length
   const todosPreenchidos = pendentes.length === 0 || pendentesPreenchidos === pendentes.length
 
+  // Verifica se alguma quantidade foi alterada sem justificativa (ou <= 0).
+  function primeiroItemQtdInvalida(): VinculacaoItem | null {
+    for (const item of itens) {
+      const q = Number(quantidades[item.id] ?? item.quantidade)
+      if (Number.isFinite(q) && q !== Number(item.quantidade)) {
+        if (q <= 0 || !(justificativas[item.id] ?? "").trim()) return item
+      }
+    }
+    return null
+  }
+
   async function irParaConferencia() {
     if (!todosPreenchidos) {
       toast.error("Informe o código interno de todos os itens pendentes antes de conferir.")
+      return
+    }
+    const invalido = primeiroItemQtdInvalida()
+    if (invalido) {
+      toast.error(`Justifique a alteração de quantidade de "${invalido.descricaoFornecedor ?? "item"}".`)
       return
     }
     setEtapa("conferencia")
@@ -124,13 +187,36 @@ export function VinculacaoManager({ data }: { data: VinculacaoData }) {
   }
 
   async function handleSalvar() {
+    const invalido = primeiroItemQtdInvalida()
+    if (invalido) {
+      toast.error(`Justifique a alteração de quantidade de "${invalido.descricaoFornecedor ?? "item"}".`)
+      setEtapa("vincular")
+      return
+    }
+
     // Monta as entradas: itens pendentes com código digitado + itens já
     // vinculados (mantêm o código do produto atual, editável na conferência).
-    const entradas: { itemId: number; codigoInterno: string }[] = []
+    const entradas: {
+      itemId: number
+      codigoInterno: string
+      devolucao: boolean
+      compradorId: string | null
+      quantidade: string
+      justificativaQuantidade: string | null
+    }[] = []
     for (const item of itens) {
       const digitado = (codigos[item.id] ?? "").trim()
       const codigoFinal = digitado || item.produtoCodigoInterno || ""
-      if (codigoFinal) entradas.push({ itemId: item.id, codigoInterno: codigoFinal })
+      if (!codigoFinal) continue
+      const justificativa = (justificativas[item.id] ?? "").trim()
+      entradas.push({
+        itemId: item.id,
+        codigoInterno: codigoFinal,
+        devolucao: devolucoes[item.id] ?? false,
+        compradorId: compradorSel[item.id] ? compradorSel[item.id] : null,
+        quantidade: quantidades[item.id] ?? item.quantidade,
+        justificativaQuantidade: justificativa || null,
+      })
     }
 
     if (entradas.length !== itens.length) {
@@ -191,6 +277,15 @@ export function VinculacaoManager({ data }: { data: VinculacaoData }) {
           onCodigoChange={handleCodigoChange}
           preenchidos={pendentesPreenchidos}
           onAvancar={irParaConferencia}
+          compradores={compradores}
+          devolucoes={devolucoes}
+          compradorSel={compradorSel}
+          quantidades={quantidades}
+          justificativas={justificativas}
+          onDevolucaoChange={setDevolucao}
+          onCompradorChange={setComprador}
+          onQuantidadeChange={setQuantidade}
+          onJustificativaChange={setJustificativa}
         />
       ) : (
         <EtapaConferencia
@@ -202,6 +297,10 @@ export function VinculacaoManager({ data }: { data: VinculacaoData }) {
           onVoltar={() => setEtapa("vincular")}
           onSalvar={handleSalvar}
           temPendentes={pendentes.length > 0}
+          compradores={compradores}
+          devolucoes={devolucoes}
+          compradorSel={compradorSel}
+          quantidades={quantidades}
         />
       )}
     </div>
@@ -303,6 +402,15 @@ function EtapaVincular({
   onCodigoChange,
   preenchidos,
   onAvancar,
+  compradores,
+  devolucoes,
+  compradorSel,
+  quantidades,
+  justificativas,
+  onDevolucaoChange,
+  onCompradorChange,
+  onQuantidadeChange,
+  onJustificativaChange,
 }: {
   pendentes: VinculacaoItem[]
   jaVinculados: VinculacaoItem[]
@@ -312,6 +420,15 @@ function EtapaVincular({
   onCodigoChange: (itemId: number, valor: string) => void
   preenchidos: number
   onAvancar: () => void
+  compradores: Comprador[]
+  devolucoes: Record<number, boolean>
+  compradorSel: Record<number, string>
+  quantidades: Record<number, string>
+  justificativas: Record<number, string>
+  onDevolucaoChange: (itemId: number, v: boolean) => void
+  onCompradorChange: (itemId: number, v: string) => void
+  onQuantidadeChange: (itemId: number, v: string) => void
+  onJustificativaChange: (itemId: number, v: string) => void
 }) {
   const [index, setIndex] = useState(0)
   const inputRef = useRef<HTMLInputElement>(null)
@@ -467,6 +584,21 @@ function EtapaVincular({
             </div>
 
             <PreviewVinculo codigo={codigo} checking={checking} existente={existente} />
+
+            <div className="border-t border-border pt-4">
+              <ItemExtras
+                item={item}
+                compradores={compradores}
+                devolucao={devolucoes[item.id] ?? false}
+                comprador={compradorSel[item.id] ?? ""}
+                quantidade={quantidades[item.id] ?? item.quantidade}
+                justificativa={justificativas[item.id] ?? ""}
+                onDevolucaoChange={(v) => onDevolucaoChange(item.id, v)}
+                onCompradorChange={(v) => onCompradorChange(item.id, v)}
+                onQuantidadeChange={(v) => onQuantidadeChange(item.id, v)}
+                onJustificativaChange={(v) => onJustificativaChange(item.id, v)}
+              />
+            </div>
           </div>
         </div>
       </Card>
@@ -497,6 +629,148 @@ function EtapaVincular({
       </div>
 
       {jaVinculados.length > 0 && <ReconhecidosCard jaVinculados={jaVinculados} />}
+    </div>
+  )
+}
+
+function ItemExtras({
+  item,
+  compradores,
+  devolucao,
+  comprador,
+  quantidade,
+  justificativa,
+  onDevolucaoChange,
+  onCompradorChange,
+  onQuantidadeChange,
+  onJustificativaChange,
+}: {
+  item: VinculacaoItem
+  compradores: Comprador[]
+  devolucao: boolean
+  comprador: string
+  quantidade: string
+  justificativa: string
+  onDevolucaoChange: (v: boolean) => void
+  onCompradorChange: (v: string) => void
+  onQuantidadeChange: (v: string) => void
+  onJustificativaChange: (v: string) => void
+}) {
+  const qtdNum = Number(quantidade)
+  const qtdOriginal = Number(item.quantidade)
+  const qtdMudou = Number.isFinite(qtdNum) && qtdNum !== qtdOriginal
+  const semJustificativa = qtdMudou && !justificativa.trim()
+
+  const ajustar = (delta: number) => {
+    const base = Number.isFinite(qtdNum) ? qtdNum : qtdOriginal
+    const novo = Math.max(0, base + delta)
+    onQuantidadeChange(String(novo))
+  }
+
+  const NONE = "__nenhum__"
+
+  return (
+    <div className="flex flex-col gap-4">
+      {/* Quantidade */}
+      <div>
+        <div className="flex items-center justify-between">
+          <label className="text-sm font-semibold text-foreground">Quantidade</label>
+          <span className="text-xs text-muted-foreground">
+            Nota: {fmtQty(item.quantidade)} {item.unidade ?? ""}
+          </span>
+        </div>
+        <div className="mt-2 flex items-center gap-2">
+          <Button
+            type="button"
+            variant="outline"
+            size="icon"
+            className="h-9 w-9 shrink-0 bg-transparent"
+            onClick={() => ajustar(-1)}
+            aria-label="Diminuir quantidade"
+          >
+            <Minus className="h-4 w-4" />
+          </Button>
+          <Input
+            value={quantidade}
+            onChange={(e) => onQuantidadeChange(e.target.value.replace(",", "."))}
+            inputMode="decimal"
+            className={cn("h-9 text-center tabular-nums", qtdMudou && "border-amber-500 font-semibold")}
+            aria-label="Quantidade do item"
+          />
+          <Button
+            type="button"
+            variant="outline"
+            size="icon"
+            className="h-9 w-9 shrink-0 bg-transparent"
+            onClick={() => ajustar(1)}
+            aria-label="Aumentar quantidade"
+          >
+            <Plus className="h-4 w-4" />
+          </Button>
+        </div>
+        {qtdMudou && (
+          <div className="mt-2">
+            <div className="mb-1 flex items-center gap-1.5 text-xs font-medium text-amber-600 dark:text-amber-400">
+              <AlertTriangle className="h-3.5 w-3.5" />
+              Quantidade alterada de {fmtQty(item.quantidade)} para {fmtQty(quantidade)} — justifique.
+            </div>
+            <Textarea
+              value={justificativa}
+              onChange={(e) => onJustificativaChange(e.target.value)}
+              placeholder="Ex.: 2 unidades vieram avariadas / faltou 1 no volume."
+              rows={2}
+              className={cn("text-sm", semJustificativa && "border-amber-500")}
+              aria-label="Justificativa da alteração de quantidade"
+              aria-invalid={semJustificativa}
+            />
+          </div>
+        )}
+      </div>
+
+      {/* Devolução */}
+      <div
+        className={cn(
+          "flex items-center justify-between gap-3 rounded-lg border p-3 transition-colors",
+          devolucao ? "border-destructive/40 bg-destructive/10" : "border-border bg-background/60",
+        )}
+      >
+        <div className="flex items-center gap-2">
+          <RotateCcw className={cn("h-4 w-4", devolucao ? "text-destructive" : "text-muted-foreground")} />
+          <div>
+            <p className="text-sm font-medium text-foreground">Devolução</p>
+            <p className="text-xs text-muted-foreground">Marque se esta peça é uma devolução.</p>
+          </div>
+        </div>
+        <Switch checked={devolucao} onCheckedChange={onDevolucaoChange} aria-label="Marcar como devolução" />
+      </div>
+
+      {/* Entregar para (comprador) */}
+      <div>
+        <label className="flex items-center gap-1.5 text-sm font-semibold text-foreground">
+          <Truck className="h-4 w-4 text-muted-foreground" />
+          Entregar para
+        </label>
+        <p className="mt-0.5 text-xs text-muted-foreground">Opcional — comprador responsável pela peça.</p>
+        <Select
+          value={comprador || NONE}
+          onValueChange={(v) => onCompradorChange(v === NONE ? "" : v)}
+        >
+          <SelectTrigger className="mt-2 h-9">
+            <SelectValue placeholder="Ninguém" />
+          </SelectTrigger>
+          <SelectContent>
+            <SelectItem value={NONE}>Ninguém</SelectItem>
+            {compradores.map((c) => (
+              <SelectItem key={c.id} value={c.id}>
+                {c.name}
+              </SelectItem>
+            ))}
+          </SelectContent>
+        </Select>
+        {compradores.length === 0 && (
+          <p className="mt-1 text-xs text-muted-foreground">Nenhum usuário com papel &quot;comprador&quot; cadastrado.</p>
+        )}
+      </div>
     </div>
   )
 }
@@ -603,6 +877,10 @@ function EtapaConferencia({
   onVoltar,
   onSalvar,
   temPendentes,
+  compradores,
+  devolucoes,
+  compradorSel,
+  quantidades,
 }: {
   itens: VinculacaoItem[]
   codigos: Record<number, string>
@@ -612,7 +890,13 @@ function EtapaConferencia({
   onVoltar: () => void
   onSalvar: () => void
   temPendentes: boolean
+  compradores: Comprador[]
+  devolucoes: Record<number, boolean>
+  compradorSel: Record<number, string>
+  quantidades: Record<number, string>
 }) {
+  const compradorNome = (id: string) => compradores.find((c) => c.id === id)?.name ?? null
+
   function codigoDoItem(item: VinculacaoItem) {
     const digitado = (codigos[item.id] ?? "").trim()
     return digitado || item.produtoCodigoInterno || ""
@@ -637,7 +921,7 @@ function EtapaConferencia({
                 <TableHead>EAN</TableHead>
                 <TableHead className="text-center">Qtd</TableHead>
                 <TableHead className="text-right">Vlr unit.</TableHead>
-                <TableHead className="text-right">Vlr total</TableHead>
+                <TableHead className="min-w-40">Marcações</TableHead>
                 <TableHead className="min-w-48">Código interno</TableHead>
                 <TableHead>Situação</TableHead>
               </TableRow>
@@ -658,10 +942,46 @@ function EtapaConferencia({
                     <TableCell className="font-mono text-xs">{item.codigoFornecedor ?? "—"}</TableCell>
                     <TableCell className="font-mono text-xs">{item.ean ?? "—"}</TableCell>
                     <TableCell className="text-center tabular-nums">
-                      {fmtQty(item.quantidade)} {item.unidade ?? ""}
+                      {(() => {
+                        const q = quantidades[item.id] ?? item.quantidade
+                        const mudou = Number(q) !== Number(item.quantidade)
+                        return (
+                          <div className="flex flex-col items-center">
+                            <span className={cn(mudou && "font-semibold text-amber-600 dark:text-amber-400")}>
+                              {fmtQty(q)} {item.unidade ?? ""}
+                            </span>
+                            {mudou && (
+                              <span className="text-[11px] text-muted-foreground line-through">
+                                {fmtQty(item.quantidade)}
+                              </span>
+                            )}
+                          </div>
+                        )
+                      })()}
                     </TableCell>
                     <TableCell className="text-right tabular-nums">{fmtCurrency(item.valorUnitario)}</TableCell>
-                    <TableCell className="text-right tabular-nums">{fmtCurrency(item.valorTotal)}</TableCell>
+                    <TableCell>
+                      {(() => {
+                        const dev = devolucoes[item.id] ?? false
+                        const compId = compradorSel[item.id] ?? ""
+                        const nome = compId ? compradorNome(compId) : null
+                        if (!dev && !nome) return <span className="text-xs text-muted-foreground">—</span>
+                        return (
+                          <div className="flex flex-col gap-1">
+                            {dev && (
+                              <Badge className="w-fit gap-1 bg-destructive/15 text-destructive hover:bg-destructive/15">
+                                <RotateCcw className="h-3 w-3" /> Devolução
+                              </Badge>
+                            )}
+                            {nome && (
+                              <span className="inline-flex items-center gap-1 text-xs text-muted-foreground">
+                                <Truck className="h-3 w-3" /> {nome}
+                              </span>
+                            )}
+                          </div>
+                        )
+                      })()}
+                    </TableCell>
                     <TableCell>
                       <Input
                         value={codigos[item.id] ?? item.produtoCodigoInterno ?? ""}

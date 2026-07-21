@@ -1,7 +1,7 @@
 "use server"
 
 import { db } from "@/lib/db"
-import { notas, itensNota, produtos, equivalenciaProdutos, historicoLeituras, historicoAprendizado } from "@/lib/db/schema"
+import { notas, itensNota, produtos, equivalenciaProdutos, historicoLeituras, historicoAprendizado, user } from "@/lib/db/schema"
 import { and, eq, or, sql } from "drizzle-orm"
 import { requirePermission } from "@/lib/guards"
 import { revalidatePath } from "next/cache"
@@ -25,6 +25,10 @@ function gamePayload(item: ItemRow, produtoDescricao?: string | null, produtoCod
     quantidadeConferida: qtyNum(item.quantidadeConferida),
     unidade: item.unidade,
     statusConferencia: item.statusConferencia,
+    devolucao: item.devolucao,
+    compradorNome: item.compradorNome,
+    quantidadeOriginal: item.quantidadeOriginal ? qtyNum(item.quantidadeOriginal) : null,
+    justificativaQuantidade: item.justificativaQuantidade,
   }
 }
 
@@ -44,6 +48,13 @@ export async function getConferencia(notaId: number) {
   const [nota] = await db.select().from(notas).where(eq(notas.id, notaId)).limit(1)
   if (!nota) return null
 
+  // Nome de quem importou/criou a nota (para exibir na conferência).
+  let importadoPor: string | null = null
+  if (nota.createdBy) {
+    const [u] = await db.select({ name: user.name }).from(user).where(eq(user.id, nota.createdBy)).limit(1)
+    importadoPor = u?.name ?? null
+  }
+
   const itens = await db
     .select({
       item: itensNota,
@@ -57,7 +68,7 @@ export async function getConferencia(notaId: number) {
 
   const progress = await notaProgress(notaId)
   return {
-    nota,
+    nota: { ...nota, importadoPor },
     itens: itens.map((r) => gamePayload(r.item, r.produtoDescricao, r.produtoCodigo)),
     progress,
   }

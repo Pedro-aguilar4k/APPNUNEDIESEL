@@ -1,8 +1,8 @@
 "use server"
 
 import { db } from "@/lib/db"
-import { notas, itensNota, produtos, equivalenciaProdutos, historicoAprendizado } from "@/lib/db/schema"
-import { and, eq, sql } from "drizzle-orm"
+import { notas, itensNota, produtos, equivalenciaProdutos, historicoAprendizado, user } from "@/lib/db/schema"
+import { and, eq, inArray, sql } from "drizzle-orm"
 import { requirePermission } from "@/lib/guards"
 import { revalidatePath } from "next/cache"
 
@@ -26,7 +26,14 @@ export type VinculacaoItem = {
   matchScore: number | null
   produtoCodigoInterno: string | null
   produtoDescricao: string | null
+  devolucao: boolean
+  compradorId: string | null
+  compradorNome: string | null
+  quantidadeOriginal: string | null
+  justificativaQuantidade: string | null
 }
+
+export type Comprador = { id: string; name: string }
 
 export type VinculacaoData = {
   nota: {
@@ -67,6 +74,11 @@ export async function getVinculacaoData(notaId: number): Promise<VinculacaoData 
       matchScore: itensNota.matchScore,
       produtoCodigoInterno: produtos.codigoInterno,
       produtoDescricao: produtos.descricao,
+      devolucao: itensNota.devolucao,
+      compradorId: itensNota.compradorId,
+      compradorNome: itensNota.compradorNome,
+      quantidadeOriginal: itensNota.quantidadeOriginal,
+      justificativaQuantidade: itensNota.justificativaQuantidade,
     })
     .from(itensNota)
     .leftJoin(produtos, eq(itensNota.produtoId, produtos.id))
@@ -122,7 +134,25 @@ export async function buscarProdutosPorCodigos(
   return map
 }
 
-export type VinculacaoEntrada = { itemId: number; codigoInterno: string }
+/** Lista os usuários com papel "comprador" (para entregar a peça). */
+export async function listCompradores(): Promise<Comprador[]> {
+  await requirePermission("gerenciar_notas")
+  const rows = await db
+    .select({ id: user.id, name: user.name })
+    .from(user)
+    .where(and(eq(user.role, "comprador"), sql`${user.banned} is not true`))
+    .orderBy(user.name)
+  return rows
+}
+
+export type VinculacaoEntrada = {
+  itemId: number
+  codigoInterno: string
+  devolucao: boolean
+  compradorId: string | null
+  quantidade: string
+  justificativaQuantidade: string | null
+}
 
 export type SalvarVinculacoesResult =
   | { ok: true; criados: number; vinculados: number }
@@ -148,6 +178,37 @@ export async function salvarVinculacoes(
 
     const itens = await db.select().from(itensNota).where(eq(itensNota.notaId, notaId))
     const itemMap = new Map(itens.map((i) => [i.id, i]))
+
+    // Resolve os nomes dos compradores selecionados (para exibir na conferência).
+    const compradorIds = Array.from(
+      new Set(entradas.map((e) => e.compradorId).filter((v): v is string => !!v)),
+    )
+    const compradorNomeMap = new Map<string, string>()
+    if (compradorIds.length) {
+      const compradores = await db
+        .select({ id: user.id, name: user.name })
+        .from(user)
+        .where(inArray(user.id, compradorIds))
+      for (const c of compradores) compradorNomeMap.set(c.id, c.name)
+    }
+
+    // Valida justificativa obrigatória ao alterar a quantidade.
+    for (const entrada of entradas) {
+      const item = itemMap.get(entrada.itemId)
+      if (!item) continue
+      const novaQtd = Number(entrada.quantidade)
+      if (Number.isFinite(novaQtd) && novaQtd !== Number(item.quantidade)) {
+        if (!entrada.justificativaQuantidade?.trim()) {
+          return {
+            ok: false,
+            error: `Informe a justificativa para alterar a quantidade de "${item.descricaoFornecedor ?? "item"}".`,
+          }
+        }
+        if (novaQtd <= 0) {
+          return { ok: false, error: "A quantidade deve ser maior que zero." }
+        }
+      }
+    }
 
     let criados = 0
     let vinculados = 0
@@ -189,13 +250,28 @@ export async function salvarVinculacoes(
           .where(eq(produtos.id, produto.id))
       }
 
-      // Vincula o item ao produto.
+      // Trata alteração de quantidade (com justificativa) preservando o original.
+      const novaQtd = Number(entrada.quantidade)
+      const qtdMudou = Number.isFinite(novaQtd) && novaQtd !== Number(item.quantidade)
+      const quantidadeFinal = qtdMudou ? String(novaQtd) : item.quantidade
+      const quantidadeOriginal = qtdMudou
+        ? (item.quantidadeOriginal ?? item.quantidade)
+        : item.quantidadeOriginal
+      const justificativa = qtdMudou ? (entrada.justificativaQuantidade?.trim() ?? null) : item.justificativaQuantidade
+
+      // Vincula o item ao produto e grava devolução, comprador e quantidade.
       await db
         .update(itensNota)
         .set({
           produtoId: produto.id,
           matchTipo: "manual",
           matchScore: 100,
+          devolucao: entrada.devolucao,
+          compradorId: entrada.compradorId,
+          compradorNome: entrada.compradorId ? (compradorNomeMap.get(entrada.compradorId) ?? null) : null,
+          quantidade: quantidadeFinal,
+          quantidadeOriginal,
+          justificativaQuantidade: justificativa,
           updatedAt: new Date(),
         })
         .where(eq(itensNota.id, item.id))

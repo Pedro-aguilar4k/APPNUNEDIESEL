@@ -174,6 +174,12 @@ export const itensNota = pgTable(
     matchScore: real("match_score").default(0),
     statusConferencia: text("status_conferencia").notNull().default("pendente"), // pendente | conferido | divergente | nao_encontrado
     quantidadeConferida: numeric("quantidade_conferida").default("0"),
+    // Definido na vinculação:
+    devolucao: boolean("devolucao").notNull().default(false), // peça é devolução
+    compradorId: text("comprador_id"), // usuário (papel comprador) para quem entregar
+    compradorNome: text("comprador_nome"), // nome denormalizado para exibição rápida
+    quantidadeOriginal: numeric("quantidade_original"), // qtd original da NF-e (quando alterada)
+    justificativaQuantidade: text("justificativa_quantidade"), // obrigatória ao alterar a qtd
     createdAt: timestamp("created_at").notNull().defaultNow(),
     updatedAt: timestamp("updated_at").notNull().defaultNow(),
   },

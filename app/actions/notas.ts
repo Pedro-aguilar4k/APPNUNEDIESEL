@@ -1,7 +1,7 @@
 "use server"
 
 import { db } from "@/lib/db"
-import { notas, itensNota, fornecedores } from "@/lib/db/schema"
+import { notas, itensNota, fornecedores, user } from "@/lib/db/schema"
 import { and, desc, eq, ilike, or, sql } from "drizzle-orm"
 import { requirePermission, requireActor } from "@/lib/guards"
 import { parseNfeXml } from "@/lib/nfe/parse"
@@ -148,6 +148,7 @@ export type NotaListItem = {
   totalItens: number | null
   itensConferidos: number | null
   itensPendentes: number
+  importadoPor: string | null
   createdAt: Date
 }
 
@@ -190,6 +191,9 @@ export async function listNotas(params?: { search?: string; status?: string }): 
       itensPendentes: sql<number>`(
         select count(*)::int from ${itensNota}
         where ${itensNota.notaId} = ${notas.id} and ${itensNota.produtoId} is null
+      )`,
+      importadoPor: sql<string | null>`(
+        select ${user.name} from ${user} where ${user.id} = ${notas.createdBy}
       )`,
       createdAt: notas.createdAt,
     })

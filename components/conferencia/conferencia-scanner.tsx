@@ -12,6 +12,9 @@ import {
   Link2,
   Loader2,
   PackageCheck,
+  RotateCcw,
+  Truck,
+  User,
 } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { Card } from "@/components/ui/card"
@@ -41,6 +44,10 @@ type GameItem = {
   quantidadeConferida: number
   unidade: string | null
   statusConferencia: string
+  devolucao: boolean
+  compradorNome: string | null
+  quantidadeOriginal: number | null
+  justificativaQuantidade: string | null
 }
 
 type Nota = {
@@ -48,6 +55,7 @@ type Nota = {
   numero: string | null
   fornecedorNome: string | null
   status: string
+  importadoPor?: string | null
 }
 
 type ConferenciaData = {
@@ -275,6 +283,12 @@ export function ConferenciaScanner({ initial, canBind }: { initial: ConferenciaD
               {initial.nota.numero ? `Conferência · Nota Nº ${initial.nota.numero}` : `Conferência · Nota #${initial.nota.id}`}
             </h1>
             <p className="text-sm text-muted-foreground">{initial.nota.fornecedorNome ?? "Sem fornecedor"}</p>
+            {initial.nota.importadoPor && (
+              <p className="mt-1 inline-flex items-center gap-1.5 text-xs text-muted-foreground">
+                <User className="h-3.5 w-3.5" />
+                Importada por <span className="font-medium text-foreground">{initial.nota.importadoPor}</span>
+              </p>
+            )}
           </div>
           <Button onClick={handleFinalizar} variant="outline">
             Finalizar conferência
@@ -303,8 +317,20 @@ export function ConferenciaScanner({ initial, canBind }: { initial: ConferenciaD
             <>
               <FbIcon className="h-10 w-10" />
               <p className="text-lg font-bold text-balance">{last.message}</p>
+              {last.item?.devolucao && (
+                <span className="inline-flex items-center gap-1 rounded-md bg-destructive px-2.5 py-1 text-sm font-bold uppercase tracking-wide text-destructive-foreground">
+                  <RotateCcw className="h-4 w-4" />
+                  Devolução
+                </span>
+              )}
               {last.item?.produtoDescricao && (
                 <p className="text-sm opacity-80 text-balance">{last.item.produtoDescricao}</p>
+              )}
+              {last.item?.compradorNome && (
+                <p className="inline-flex items-center gap-1 text-sm font-medium">
+                  <Truck className="h-4 w-4" />
+                  Entregar para {last.item.compradorNome}
+                </p>
               )}
               {last.scanned?.descricao && last.tipo === "produto_errado" && (
                 <p className="text-xs opacity-70">Bipado: {last.scanned.descricao}</p>
@@ -395,11 +421,17 @@ export function ConferenciaScanner({ initial, canBind }: { initial: ConferenciaD
             <div
               key={i.id}
               className={`flex flex-col gap-2 p-4 sm:flex-row sm:items-center sm:justify-between ${
-                isActive ? "bg-primary/5" : ""
-              }`}
+                i.devolucao ? "border-l-4 border-destructive bg-destructive/5" : ""
+              } ${isActive ? "bg-primary/5" : ""}`}
             >
               <div className="min-w-0 flex-1">
-                <div className="flex items-center gap-2">
+                <div className="flex flex-wrap items-center gap-2">
+                  {i.devolucao && (
+                    <span className="inline-flex items-center gap-1 rounded-md bg-destructive px-2 py-0.5 text-xs font-bold uppercase tracking-wide text-destructive-foreground">
+                      <RotateCcw className="h-3.5 w-3.5" />
+                      Devolução
+                    </span>
+                  )}
                   <p className="truncate font-medium text-foreground">
                     {i.produtoDescricao ?? i.descricaoNfe}
                   </p>
@@ -409,6 +441,25 @@ export function ConferenciaScanner({ initial, canBind }: { initial: ConferenciaD
                   {i.produtoDescricao ? `NF-e: ${i.descricaoNfe}` : `Cód. fornecedor: ${i.cprod ?? "—"}`}
                   {i.ean ? ` · EAN ${i.ean}` : ""}
                 </p>
+                {(i.compradorNome || i.quantidadeOriginal != null) && (
+                  <div className="mt-1 flex flex-wrap items-center gap-x-3 gap-y-1 text-xs">
+                    {i.compradorNome && (
+                      <span className="inline-flex items-center gap-1 font-medium text-primary">
+                        <Truck className="h-3.5 w-3.5" />
+                        Entregar para {i.compradorNome}
+                      </span>
+                    )}
+                    {i.quantidadeOriginal != null && (
+                      <span
+                        className="inline-flex items-center gap-1 text-amber-600 dark:text-amber-400"
+                        title={i.justificativaQuantidade ?? undefined}
+                      >
+                        <AlertTriangle className="h-3.5 w-3.5" />
+                        Qtd ajustada (era {i.quantidadeOriginal})
+                      </span>
+                    )}
+                  </div>
+                )}
               </div>
               <div className="flex items-center gap-4">
                 <span
