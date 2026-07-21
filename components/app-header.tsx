@@ -25,6 +25,7 @@ const ROUTE_TITLES: { match: RegExp; eyebrow: string; title: string }[] = [
   { match: /^\/equivalencias/, eyebrow: "Cadastros", title: "Equivalências" },
   { match: /^\/relatorios/, eyebrow: "Gestão", title: "Relatórios" },
   { match: /^\/usuarios/, eyebrow: "Administração", title: "Usuários" },
+  { match: /^\/configuracoes/, eyebrow: "Conta", title: "Configurações" },
 ]
 
 export function AppHeader({ user }: { user: SessionUser }) {

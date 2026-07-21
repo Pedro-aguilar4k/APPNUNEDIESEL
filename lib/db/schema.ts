@@ -350,3 +350,22 @@ export const esperaItens = pgTable(
     boxIdx: index("espera_itens_box_idx").on(t.boxPrimario),
   }),
 )
+
+// Preferencias por usuario. Uma linha por usuario (userId = pk). O tema fica no
+// next-themes (localStorage); aqui guardamos padroes do app e alertas do painel.
+export const preferenciasUsuario = pgTable("preferencias_usuario", {
+  userId: text("user_id")
+    .primaryKey()
+    .references(() => user.id, { onDelete: "cascade" }),
+  // Geral
+  itensPorPagina: integer("itens_por_pagina").notNull().default(25),
+  // Alertas exibidos no painel/topo
+  notifEstoqueBaixo: boolean("notif_estoque_baixo").notNull().default(true),
+  notifNovaGarantia: boolean("notif_nova_garantia").notNull().default(true),
+  notifResumoDiario: boolean("notif_resumo_diario").notNull().default(false),
+  // Padroes especificos do estoque
+  estoqueAlertaMinimo: integer("estoque_alerta_minimo").notNull().default(5),
+  esperaTipoPadrao: text("espera_tipo_padrao").notNull().default("unidade"), // unidade | pacote | caixa
+  garantiaLojaPadrao: text("garantia_loja_padrao"), // Sama | Laguna | Matrix | null
+  updatedAt: timestamp("updated_at").notNull().defaultNow(),
+})

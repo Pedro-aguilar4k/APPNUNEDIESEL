@@ -3,7 +3,7 @@
 import Link from "next/link"
 import Image from "next/image"
 import { usePathname, useRouter } from "next/navigation"
-import { LogOut, PanelLeftClose, PanelLeftOpen } from "lucide-react"
+import { LogOut, PanelLeftClose, PanelLeftOpen, Settings } from "lucide-react"
 import { authClient } from "@/lib/auth-client"
 import { NAV_ITEMS, GROUP_LABELS, type NavItem } from "@/lib/navigation"
 import { roleHasPermission, ROLE_LABELS, type Role } from "@/lib/permissions"
@@ -106,6 +106,15 @@ export function AppSidebar({
           <div className="app-user-avatar" title={`${user.name || user.username} · ${ROLE_LABELS[user.role as Role]}`}>
             {(user.name || user.username || "?")[0]?.toUpperCase()}
           </div>
+          <Link
+            href="/configuracoes"
+            onClick={onNavigate}
+            className={cn("app-icon-button", isActive("/configuracoes") && "is-active")}
+            aria-label="Configurações"
+            title="Configurações"
+          >
+            <Settings className="h-4 w-4" />
+          </Link>
           <button onClick={handleLogout} className="app-icon-button" aria-label="Sair" title="Sair">
             <LogOut className="h-4 w-4" />
           </button>
@@ -119,6 +128,15 @@ export function AppSidebar({
               {ROLE_LABELS[user.role as Role]}
             </p>
           </div>
+          <Link
+            href="/configuracoes"
+            onClick={onNavigate}
+            className={cn("app-icon-button", isActive("/configuracoes") && "is-active")}
+            aria-label="Configurações"
+            title="Configurações"
+          >
+            <Settings className="h-4 w-4" />
+          </Link>
           <button onClick={handleLogout} className="app-icon-button" aria-label="Sair" title="Sair">
             <LogOut className="h-4 w-4" />
           </button>
