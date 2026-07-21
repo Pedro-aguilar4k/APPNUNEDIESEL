@@ -32,8 +32,9 @@ const PERMISSION_ROLES: Record<Permission, Role[]> = {
   gerenciar_cadastros: ["admin", "gerente", "comprador"],
   relatorios: ["admin", "gerente"],
   gerenciar_usuarios: ["admin"],
-  // Somente o vendedor abre tickets e ve "Minhas garantias".
-  abrir_garantia: ["vendedor"],
+  // Vendedor abre tickets e ve "Minhas garantias". Admin tambem enxerga o grupo
+  // (acesso total a todas as abas da plataforma).
+  abrir_garantia: ["admin", "vendedor"],
   // A equipe interna acompanha e move os tickets no board.
   gerenciar_garantia: ["admin", "gerente", "comprador", "estoquista"],
 }
