@@ -320,3 +320,33 @@ export const garantias = pgTable(
     statusIdx: index("garantias_status_idx").on(t.status),
   }),
 )
+
+// "Espera": pulmao/overflow do estoque. Itens que nao couberam na locacao normal
+// e ficam guardados em boxes. O total em UNIDADES e a fonte da verdade; caixa/pacote
+// e apenas a forma de guardar/exibir. Ao remover unidades, as caixas/pacotes se
+// recalculam (ceil). Codigo e texto livre e NAO vira produto cadastrado; a descricao
+// e apenas puxada do cadastro quando o codigo casa. Cada item tem 1 box primario e,
+// opcionalmente, 1 secundario. Remocao do registro so quando o total zera.
+export const esperaItens = pgTable(
+  "espera_itens",
+  {
+    id: serial("id").primaryKey(),
+    codigoInterno: text("codigo_interno").notNull(),
+    descricao: text("descricao"), // puxada do cadastro de produtos, se existir
+    // Embalagem padrao para exibicao
+    tipo: text("tipo").notNull().default("unidade"), // unidade | pacote | caixa
+    unidadesPorEmbalagem: integer("unidades_por_embalagem").notNull().default(1),
+    // Fonte da verdade: saldo total em unidades
+    totalUnidades: integer("total_unidades").notNull().default(0),
+    // Localizacao na espera
+    boxPrimario: text("box_primario").notNull(),
+    boxSecundario: text("box_secundario"),
+    createdBy: text("created_by"),
+    createdAt: timestamp("created_at").notNull().defaultNow(),
+    updatedAt: timestamp("updated_at").notNull().defaultNow(),
+  },
+  (t) => ({
+    codigoIdx: uniqueIndex("espera_itens_codigo_idx").on(t.codigoInterno),
+    boxIdx: index("espera_itens_box_idx").on(t.boxPrimario),
+  }),
+)

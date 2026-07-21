@@ -14,6 +14,7 @@ const ROUTE_TITLES: { match: RegExp; eyebrow: string; title: string }[] = [
   { match: /^\/importar/, eyebrow: "Recebimento", title: "Importar NF-e" },
   { match: /^\/reconhecimento/, eyebrow: "Inteligência", title: "Reconhecimento" },
   { match: /^\/estoque\/controle/, eyebrow: "Estoque", title: "Controle" },
+  { match: /^\/estoque\/espera/, eyebrow: "Estoque", title: "Espera" },
   { match: /^\/estoque\/garantia/, eyebrow: "Estoque", title: "Garantia" },
   { match: /^\/(estoque\/conferencia|conferencia)/, eyebrow: "Estoque", title: "Conferência" },
   { match: /^\/estoque/, eyebrow: "Estoque", title: "Estoque" },

@@ -12,6 +12,7 @@ import {
   Boxes,
   ShieldCheck,
   ShieldPlus,
+  PackageSearch,
   type LucideIcon,
 } from "lucide-react"
 
@@ -31,6 +32,7 @@ export const NAV_ITEMS: NavItem[] = [
   { href: "/importar", label: "Importar NF-e", icon: FileInput, permission: "gerenciar_notas", group: "operacao", category: "operation" },
   { href: "/reconhecimento", label: "Reconhecimento", icon: Sparkles, permission: "gerenciar_notas", group: "operacao", category: "intelligence" },
   { href: "/estoque/controle", label: "Controle", icon: Boxes, permission: "conferir", group: "estoque", category: "stock" },
+  { href: "/estoque/espera", label: "Espera", icon: PackageSearch, permission: "conferir", group: "estoque", category: "stock" },
   { href: "/estoque/garantia", label: "Garantia", icon: ShieldCheck, permission: "gerenciar_garantia", group: "estoque", category: "stock" },
   { href: "/estoque/conferencia", label: "Conferência", icon: ScanBarcode, permission: "conferir", group: "estoque", category: "operation" },
   // Vendedor (acesso mínimo): só abre e acompanha as próprias garantias.
