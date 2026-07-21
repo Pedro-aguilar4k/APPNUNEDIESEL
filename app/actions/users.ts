@@ -66,7 +66,8 @@ export async function createUser(input: {
         name,
         email: `${username}@conferencia.local`,
         password: input.password,
-        role: input.role,
+        // Better Auth tipa role como "user" | "admin", mas aceita papéis custom em runtime.
+        role: input.role as "user" | "admin",
         data: { username, displayUsername: input.username.trim() },
       },
     })
@@ -88,7 +89,8 @@ export async function updateUserRole(userId: string, role: Role): Promise<Action
 
     await auth.api.setRole({
       headers: await headers(),
-      body: { userId, role },
+      // Better Auth tipa role como "user" | "admin", mas aceita papéis custom em runtime.
+      body: { userId, role: role as "user" | "admin" },
     })
     revalidatePath("/usuarios")
     return { ok: true }

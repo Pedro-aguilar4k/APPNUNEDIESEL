@@ -6,6 +6,7 @@ const ROLE_STYLES: Record<Role, string> = {
   gerente: "bg-accent-brand text-accent-brand-foreground",
   comprador: "bg-chart-2/15 text-chart-2 border border-chart-2/30",
   estoquista: "bg-muted text-muted-foreground",
+  vendedor: "bg-emerald-500/15 text-emerald-700 dark:text-emerald-400 border border-emerald-500/30",
 }
 
 export function RoleBadge({ role }: { role: string }) {

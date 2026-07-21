@@ -5,47 +5,9 @@ import { garantias } from "@/lib/db/schema"
 import { desc, eq, sql } from "drizzle-orm"
 import { requirePermission } from "@/lib/guards"
 import { revalidatePath } from "next/cache"
+import { GARANTIA_STATUS, type GarantiaStatus, type Garantia, type NovaGarantiaInput } from "@/lib/garantias"
 
-export const GARANTIA_STATUS = ["pendente", "em_analise", "enviado", "esperando_retorno"] as const
-export type GarantiaStatus = (typeof GARANTIA_STATUS)[number]
-
-export const GARANTIA_STATUS_LABELS: Record<GarantiaStatus, string> = {
-  pendente: "Pendente",
-  em_analise: "Em análise",
-  enviado: "Enviado",
-  esperando_retorno: "Esperando retorno",
-}
-
-export type Garantia = typeof garantias.$inferSelect
-
-export type NovaGarantiaInput = {
-  // Cliente
-  clienteNome: string
-  clienteContato?: string
-  clienteFone?: string
-  clienteEmail?: string
-  notaNumero?: string
-  dataCompra?: string
-  loja?: string
-  // Produto
-  pecaNumero?: string
-  produtoDescricao: string
-  pecaMarca?: string
-  veiculo?: string
-  anoModelo?: string
-  motor?: string
-  // Uso
-  kmInicial?: string
-  kmDefeito?: string
-  kmRodado?: string
-  horasRodadas?: string
-  dataAplicacao?: string
-  dataDefeito?: string
-  // Defeito
-  descricaoDefeito: string
-}
-
-export type GarantiaResult = { ok: true; protocolo: string } | { ok: false; error: string }
+type GarantiaResult = { ok: true; protocolo: string } | { ok: false; error: string }
 
 function clean(v?: string | null): string | null {
   const t = (v ?? "").trim()

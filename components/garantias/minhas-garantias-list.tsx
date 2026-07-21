@@ -11,11 +11,7 @@ import {
   DialogDescription,
 } from "@/components/ui/dialog"
 import { cn } from "@/lib/utils"
-import {
-  GARANTIA_STATUS_LABELS,
-  type Garantia,
-  type GarantiaStatus,
-} from "@/app/actions/garantias"
+import { GARANTIA_STATUS_LABELS, type Garantia, type GarantiaStatus } from "@/lib/garantias"
 import { ShieldCheck, Package, CalendarDays, User, Inbox } from "lucide-react"
 
 const STATUS_STYLE: Record<GarantiaStatus, { badge: string; dot: string }> = {
