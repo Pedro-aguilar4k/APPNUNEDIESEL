@@ -246,61 +246,25 @@ export function EsperaManager({ itens }: { itens: EsperaItem[] }) {
         ) : (
           <ul className="divide-y rounded-lg border bg-card">
             {list.map((item) => (
-              <li key={item.id} className="flex items-center gap-2 px-3 py-2.5 sm:gap-3 sm:px-4">
+              <li key={item.id}>
                 <button
                   type="button"
                   onClick={() => setBusca(item.codigoInterno)}
-                  className="flex min-w-0 flex-1 items-center gap-3 rounded-md py-1 text-left transition-colors hover:opacity-80"
-                  aria-label={`Ver detalhes do código ${item.codigoInterno}`}
+                  className="flex w-full items-center gap-3 px-4 py-3 text-left transition-colors hover:bg-muted/50"
                 >
                   <span className="font-mono text-sm font-semibold text-foreground">{item.codigoInterno}</span>
-                  <span className="hidden min-w-0 flex-1 truncate text-sm text-muted-foreground sm:block">
+                  <span className="min-w-0 flex-1 truncate text-sm text-muted-foreground">
                     {item.descricao ?? "Sem descrição"}
                   </span>
-                  <span className="hidden items-center gap-1 text-xs text-muted-foreground md:flex">
+                  <span className="hidden items-center gap-1 text-xs text-muted-foreground sm:flex">
                     <MapPin className="h-3.5 w-3.5" />
                     {item.boxPrimario}
                     {item.boxSecundario ? ` · ${item.boxSecundario}` : ""}
                   </span>
-                </button>
-
-                {/* Stepper instantâneo de 1 unidade */}
-                <div className="flex shrink-0 items-center gap-1.5">
-                  <Button
-                    type="button"
-                    size="icon"
-                    variant="outline"
-                    className="h-8 w-8 rounded-full text-destructive hover:bg-destructive/10 hover:text-destructive"
-                    onClick={() => ajustar(item, -1)}
-                    disabled={item.totalUnidades <= 0}
-                    aria-label={`Remover 1 unidade de ${item.codigoInterno}`}
-                  >
-                    <Minus className="h-4 w-4" />
-                  </Button>
-                  <span className="w-16 text-center text-sm font-semibold tabular-nums text-foreground">
-                    {item.totalUnidades}
-                    <span className="ml-0.5 text-xs font-normal text-muted-foreground">un</span>
+                  <span className="w-20 shrink-0 text-right text-sm font-semibold tabular-nums text-foreground">
+                    {item.totalUnidades} un
                   </span>
-                  <Button
-                    type="button"
-                    size="icon"
-                    className="h-8 w-8 rounded-full bg-emerald-600 text-white hover:bg-emerald-700"
-                    onClick={() => ajustar(item, 1)}
-                    aria-label={`Adicionar 1 unidade a ${item.codigoInterno}`}
-                  >
-                    <Plus className="h-4 w-4" />
-                  </Button>
-                  <Button
-                    type="button"
-                    size="icon"
-                    variant="ghost"
-                    className="h-8 w-8 text-muted-foreground hover:text-foreground"
-                    onClick={() => setEditarAlvo(item)}
-                    aria-label={`Editar ${item.codigoInterno}`}
-                  >
-                    <Pencil className="h-4 w-4" />
-                  </Button>
-                </div>
+                </button>
               </li>
             ))}
           </ul>
