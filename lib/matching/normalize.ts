@@ -72,8 +72,7 @@ export function normalizeText(text: string): string {
 }
 
 /**
- * Implementa o algoritmo Ratcliff-Obershelp (equivalente ao SequenceMatcher.ratio() do Python)
- * para manter os scores idênticos ao backend original.
+ * Implementa o algoritmo Ratcliff-Obershelp (equivalente ao SequenceMatcher.ratio()).
  */
 function matchingBlocksLength(a: string, b: string): number {
   if (!a.length || !b.length) return 0
