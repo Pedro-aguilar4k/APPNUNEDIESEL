@@ -244,7 +244,7 @@ function GarantiaDetalhe({ garantia, onClose }: { garantia: Garantia | null; onC
                   <Linha label="E-mail" value={g.clienteEmail} />
                   <Linha label="Nº Nota Fiscal" value={g.notaNumero} />
                   <Linha label="Data da Compra" value={g.dataCompra} />
-                  <Linha label="Loja" value={g.loja} />
+                  <Linha label="Fornecedor" value={g.loja} />
                 </dl>
               </section>
 
@@ -253,7 +253,7 @@ function GarantiaDetalhe({ garantia, onClose }: { garantia: Garantia | null; onC
                   Dados do produto
                 </h3>
                 <dl className="grid gap-3 sm:grid-cols-2">
-                  <Linha label="Nº da Peça" value={g.pecaNumero} />
+                  <Linha label="Código interno" value={g.pecaNumero} />
                   <Linha label="Descrição" value={g.produtoDescricao} />
                   <Linha label="Marca" value={g.pecaMarca} />
                   <Linha label="Veículo" value={g.veiculo} />

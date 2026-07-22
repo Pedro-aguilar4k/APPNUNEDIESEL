@@ -651,14 +651,14 @@ function DadosGarantia({ garantia }: { garantia: Garantia }) {
         <Field label="E-mail" value={garantia.clienteEmail} />
         <Field label="Nº da nota fiscal" value={garantia.notaNumero} />
         <Field label="Data da compra" value={garantia.dataCompra} />
-        <Field label="Loja" value={garantia.loja} />
+        <Field label="Fornecedor" value={garantia.loja} />
       </section>
 
       <section className="grid grid-cols-1 gap-3 sm:grid-cols-2">
         <p className="col-span-full text-xs font-semibold uppercase tracking-wide text-muted-foreground">
           Dados do produto
         </p>
-        <Field label="Nº da peça" value={garantia.pecaNumero} />
+        <Field label="Código interno" value={garantia.pecaNumero} />
         <Field label="Descrição da peça" value={garantia.produtoDescricao} />
         <Field label="Marca da peça" value={garantia.pecaMarca} />
         <Field label="Veículo" value={garantia.veiculo} />

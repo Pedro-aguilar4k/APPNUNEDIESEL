@@ -10,13 +10,6 @@ import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import { Textarea } from "@/components/ui/textarea"
 import { Card } from "@/components/ui/card"
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from "@/components/ui/select"
 import { User, Package, Gauge, FileWarning, Loader2, Send } from "lucide-react"
 import type { LucideIcon } from "lucide-react"
 
@@ -123,6 +116,11 @@ export function NovaGarantiaForm({ vendedorNome }: { vendedorNome: string }) {
       toast.error("Preencha cliente, produto e a descrição do defeito.")
       return
     }
+    const email = form.clienteEmail?.trim()
+    if (email && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) {
+      toast.error("Informe um e-mail válido (ex.: nome@dominio.com).")
+      return
+    }
     startTransition(async () => {
       const res = await abrirGarantia(form)
       if (res.ok) {
@@ -143,20 +141,8 @@ export function NovaGarantiaForm({ vendedorNome }: { vendedorNome: string }) {
         <Field label="Fone / Celular" value={form.clienteFone!} onChange={set("clienteFone")} />
         <Field label="E-mail" type="email" value={form.clienteEmail!} onChange={set("clienteEmail")} />
         <Field label="Nº da Nota Fiscal de Compra" value={form.notaNumero!} onChange={set("notaNumero")} />
-        <Field label="Data da Compra" value={form.dataCompra!} onChange={set("dataCompra")} placeholder="dd/mm/aaaa" />
-        <div className="flex flex-col gap-1.5">
-          <Label className="text-xs">Loja</Label>
-          <Select value={form.loja || undefined} onValueChange={set("loja")}>
-            <SelectTrigger>
-              <SelectValue placeholder="Selecione a loja" />
-            </SelectTrigger>
-            <SelectContent>
-              <SelectItem value="Sama">Sama</SelectItem>
-              <SelectItem value="Laguna">Laguna</SelectItem>
-              <SelectItem value="Matrix">Matrix</SelectItem>
-            </SelectContent>
-          </Select>
-        </div>
+        <Field label="Data da Compra" type="date" value={form.dataCompra!} onChange={set("dataCompra")} />
+        <Field label="Fornecedor" value={form.loja!} onChange={set("loja")} placeholder="Digite o fornecedor" />
         <div className="flex flex-col gap-1.5">
           <Label className="text-xs">Vendedor</Label>
           <Input value={vendedorNome} disabled aria-label="Vendedor" />
@@ -164,7 +150,7 @@ export function NovaGarantiaForm({ vendedorNome }: { vendedorNome: string }) {
       </Section>
 
       <Section step="02" icon={Package} title="Dados do produto" hint="Alguns campos são só para peças de motores">
-        <Field label="Nº da Peça" value={form.pecaNumero!} onChange={set("pecaNumero")} />
+        <Field label="Código interno" value={form.pecaNumero!} onChange={set("pecaNumero")} />
         <Field label="Descrição da Peça" value={form.produtoDescricao!} onChange={set("produtoDescricao")} required />
         <Field label="Marca da Peça" value={form.pecaMarca!} onChange={set("pecaMarca")} />
         <Field label="Veículo" value={form.veiculo!} onChange={set("veiculo")} />
@@ -177,8 +163,8 @@ export function NovaGarantiaForm({ vendedorNome }: { vendedorNome: string }) {
         <Field label="Km na Data do Defeito" value={form.kmDefeito!} onChange={set("kmDefeito")} />
         <Field label="Km Rodado" value={form.kmRodado!} onChange={set("kmRodado")} />
         <Field label="Horas Rodadas (estacionários)" value={form.horasRodadas!} onChange={set("horasRodadas")} />
-        <Field label="Data da Aplicação" value={form.dataAplicacao!} onChange={set("dataAplicacao")} placeholder="dd/mm/aaaa" />
-        <Field label="Data do Defeito Apresentado" value={form.dataDefeito!} onChange={set("dataDefeito")} placeholder="dd/mm/aaaa" />
+        <Field label="Data da Aplicação" type="date" value={form.dataAplicacao!} onChange={set("dataAplicacao")} />
+        <Field label="Data do Defeito Apresentado" type="date" value={form.dataDefeito!} onChange={set("dataDefeito")} />
       </Section>
 
       <Section step="04" icon={FileWarning} title="Descrição do defeito e suas consequências">
