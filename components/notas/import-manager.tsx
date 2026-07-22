@@ -224,7 +224,7 @@ export function ImportManager() {
                               Relatório
                             </Link>
                           </Button>
-                        ) : n.itensPendentes > 0 ? (
+                        ) : n.status === "pendente" ? (
                           <Button
                             asChild
                             size="sm"
@@ -232,7 +232,7 @@ export function ImportManager() {
                           >
                             <Link href={`/importar/${n.id}/vincular`} aria-label="Vincular produtos da nota">
                               <Link2 className="h-3.5 w-3.5" />
-                              Vincular ({n.itensPendentes})
+                              {n.itensPendentes > 0 ? `Vincular (${n.itensPendentes})` : "Revisar"}
                             </Link>
                           </Button>
                         ) : (
