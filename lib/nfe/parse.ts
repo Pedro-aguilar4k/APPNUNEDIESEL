@@ -24,6 +24,9 @@ export type NfeItem = {
   unidade: string
   valorUnitario: number
   valorTotal: number
+  icms: number
+  ipi: number
+  impostos: number
 }
 
 const parser = new XMLParser({
@@ -95,6 +98,8 @@ export function parseNfeXml(xmlContent: string): { header: NfeHeader; items: Nfe
     }
     const ean = eanRaw === "SEM GTIN" || eanRaw === "" ? null : eanRaw
 
+    const { icms, ipi, impostos } = extrairImpostos(det?.imposto)
+
     items.push({
       numeroItem: Number.parseInt(String(det["@_nItem"] ?? "0"), 10) || 0,
       cprod: txt(prod.cProd) ?? "",
@@ -106,10 +111,46 @@ export function parseNfeXml(xmlContent: string): { header: NfeHeader; items: Nfe
       unidade: txt(prod.uCom) ?? "UN",
       valorUnitario: num(prod.vUnCom),
       valorTotal: num(prod.vProd),
+      icms,
+      ipi,
+      impostos,
     })
   }
 
   return { header, items }
+}
+
+/**
+ * Extrai os impostos de um item da NF-e (bloco `det.imposto`).
+ * Soma ICMS (+ ST) de qualquer grupo (ICMS00, ICMS10, ICMSSN..., etc) e o IPI.
+ * O total usa `vTotTrib` (tributos aproximados) quando presente; caso contrário,
+ * cai para a soma de ICMS + ST + IPI.
+ */
+function extrairImpostos(imposto: any): { icms: number; ipi: number; impostos: number } {
+  const imp = imposto && typeof imposto === "object" ? imposto : {}
+  let vICMS = 0
+  let vST = 0
+  let vIPI = 0
+
+  const icms = imp.ICMS
+  if (icms && typeof icms === "object") {
+    for (const grupo of Object.values(icms)) {
+      if (grupo && typeof grupo === "object") {
+        vICMS += num((grupo as Record<string, unknown>).vICMS)
+        vST += num((grupo as Record<string, unknown>).vICMSST)
+      }
+    }
+  }
+
+  const ipi = imp.IPI
+  if (ipi && typeof ipi === "object") {
+    const trib = (ipi as Record<string, any>).IPITrib
+    if (trib && typeof trib === "object") vIPI += num(trib.vIPI)
+  }
+
+  const vTotTrib = num(imp.vTotTrib)
+  const total = vTotTrib > 0 ? vTotTrib : vICMS + vST + vIPI
+  return { icms: vICMS, ipi: vIPI, impostos: total }
 }
 
 /** Busca recursiva por uma chave em objetos aninhados (fallback). */

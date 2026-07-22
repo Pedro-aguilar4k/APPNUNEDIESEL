@@ -170,6 +170,9 @@ export const itensNota = pgTable(
     unidade: text("unidade"),
     valorUnitario: numeric("valor_unitario"),
     valorTotal: numeric("valor_total"),
+    icms: numeric("icms"),
+    ipi: numeric("ipi"),
+    impostos: numeric("impostos"), // total de tributos do item (aprox.)
     produtoId: integer("produto_id"),
     matchTipo: text("match_tipo").default("none"), // ean | equivalencia | fabricante | similaridade | manual | none
     matchScore: real("match_score").default(0),

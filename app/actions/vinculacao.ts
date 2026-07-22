@@ -21,6 +21,9 @@ export type VinculacaoItem = {
   unidade: string | null
   valorUnitario: string | null
   valorTotal: string | null
+  icms: string | null
+  ipi: string | null
+  impostos: string | null
   produtoId: number | null
   matchTipo: string | null
   matchScore: number | null
@@ -69,6 +72,9 @@ export async function getVinculacaoData(notaId: number): Promise<VinculacaoData 
       unidade: itensNota.unidade,
       valorUnitario: itensNota.valorUnitario,
       valorTotal: itensNota.valorTotal,
+      icms: itensNota.icms,
+      ipi: itensNota.ipi,
+      impostos: itensNota.impostos,
       produtoId: itensNota.produtoId,
       matchTipo: itensNota.matchTipo,
       matchScore: itensNota.matchScore,
