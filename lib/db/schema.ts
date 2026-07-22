@@ -411,6 +411,30 @@ export const preferenciasUsuario = pgTable("preferencias_usuario", {
   updatedAt: timestamp("updated_at").notNull().defaultNow(),
 })
 
+// Modulos de controle livre. Cada modulo e uma pequena planilha (grade) definida
+// pelo usuario: um titulo, N colunas e N linhas. A primeira coluna e o rotulo de
+// cada linha; as demais sao valores numericos plotados num grafico de barras.
+// Compartilhado com toda a equipe (acesso por papel nas server actions).
+export const modulosControle = pgTable(
+  "modulos_controle",
+  {
+    id: serial("id").primaryKey(),
+    titulo: text("titulo").notNull(),
+    // Cabecalhos das colunas. O primeiro e o rotulo (categoria); os demais, series.
+    colunas: jsonb("colunas").notNull().$type<string[]>(),
+    // Matriz de linhas. Cada linha: [rotulo, valor1, valor2, ...] (strings).
+    linhas: jsonb("linhas").notNull().$type<string[][]>(),
+    ordem: integer("ordem").notNull().default(0),
+    createdBy: text("created_by"),
+    createdByNome: text("created_by_nome"),
+    createdAt: timestamp("created_at").notNull().defaultNow(),
+    updatedAt: timestamp("updated_at").notNull().defaultNow(),
+  },
+  (t) => ({
+    ordemIdx: index("modulos_controle_ordem_idx").on(t.ordem),
+  }),
+)
+
 // Log de auditoria: uma linha por acao relevante em qualquer aba. Simples e
 // legivel ("quem fez o que, onde e quando") para rastrear responsaveis.
 export const logs = pgTable(
