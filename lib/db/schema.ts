@@ -7,6 +7,7 @@ import {
   integer,
   numeric,
   real,
+  jsonb,
   uniqueIndex,
   index,
 } from "drizzle-orm/pg-core"
@@ -310,6 +311,20 @@ export const garantias = pgTable(
     analiseTecnica: text("analise_tecnica"),
     resultado: text("resultado"), // aprovado | reprovado | null
     observacaoInterna: text("observacao_interna"),
+    // Etapa "Em análise": validação do prazo da garantia
+    prazoGarantia: text("prazo_garantia"), // data limite (yyyy-mm-dd)
+    prazoValidado: boolean("prazo_validado").notNull().default(false),
+    // Etapa "Enviado": NFG + dados da transportadora
+    nfgNumero: text("nfg_numero"), // nota fiscal de garantia
+    transportadoraNome: text("transportadora_nome"),
+    dataEnvio: text("data_envio"),
+    freteConta: text("frete_conta"), // destinatario | remetente
+    envioCadastrado: boolean("envio_cadastrado").notNull().default(false),
+    // Etapa "Esperando retorno": dados do retorno
+    notaEntrada: text("nota_entrada"),
+    procedencia: text("procedencia"), // procedente | improcedente
+    tipoRetorno: text("tipo_retorno"), // credito | peca_nova | desconto
+    concluidoEm: timestamp("concluido_em"),
     createdBy: text("created_by"),
     createdAt: timestamp("created_at").notNull().defaultNow(),
     updatedAt: timestamp("updated_at").notNull().defaultNow(),
@@ -318,6 +333,32 @@ export const garantias = pgTable(
     protocoloIdx: uniqueIndex("garantias_protocolo_idx").on(t.protocolo),
     vendedorIdx: index("garantias_vendedor_id_idx").on(t.vendedorId),
     statusIdx: index("garantias_status_idx").on(t.status),
+  }),
+)
+
+// Rejeições de garantia. Quando um ticket é rejeitado (na triagem ou por prazo
+// inválido na análise) ele é APAGADO da tabela de garantias e um aviso é criado
+// aqui para o vendedor dono. O aviso mostra o motivo, fica disponível por 48h e
+// permite reabrir o ticket (recriando a garantia a partir do snapshot).
+export const garantiaRejeicoes = pgTable(
+  "garantia_rejeicoes",
+  {
+    id: serial("id").primaryKey(),
+    vendedorId: text("vendedor_id"),
+    protocolo: text("protocolo").notNull(),
+    produtoDescricao: text("produto_descricao"),
+    clienteNome: text("cliente_nome"),
+    motivo: text("motivo").notNull(),
+    etapa: text("etapa"), // status em que foi rejeitada
+    // Snapshot dos dados originais para reabrir o ticket.
+    dadosOriginais: jsonb("dados_originais").notNull(),
+    reaberta: boolean("reaberta").notNull().default(false),
+    rejeitadaEm: timestamp("rejeitada_em").notNull().defaultNow(),
+    expiraEm: timestamp("expira_em").notNull(),
+  },
+  (t) => ({
+    vendedorIdx: index("garantia_rejeicoes_vendedor_id_idx").on(t.vendedorId),
+    expiraIdx: index("garantia_rejeicoes_expira_em_idx").on(t.expiraEm),
   }),
 )
 
