@@ -291,6 +291,7 @@ function EtapaActions({
   // Campos das etapas
   const [prazo, setPrazo] = useState(garantia.prazoGarantia ?? "")
   const [nfg, setNfg] = useState(garantia.nfgNumero ?? "")
+  const [numeroOrcamento, setNumeroOrcamento] = useState(garantia.numeroOrcamento ?? "")
   const [transportadora, setTransportadora] = useState(garantia.transportadoraNome ?? "")
   const [dataEnvio, setDataEnvio] = useState(garantia.dataEnvio ?? "")
   const [frete, setFrete] = useState(garantia.freteConta ?? "")
@@ -378,6 +379,15 @@ function EtapaActions({
               <Input id="nfg" value={nfg} onChange={(e) => setNfg(e.target.value)} placeholder="Nº da NFG" />
             </div>
             <div className="flex flex-col gap-1.5">
+              <Label htmlFor="orcamento">Número do orçamento</Label>
+              <Input
+                id="orcamento"
+                value={numeroOrcamento}
+                onChange={(e) => setNumeroOrcamento(e.target.value)}
+                placeholder="Nº do orçamento"
+              />
+            </div>
+            <div className="flex flex-col gap-1.5">
               <Label htmlFor="transp">Transportadora</Label>
               <Input
                 id="transp"
@@ -416,12 +426,14 @@ function EtapaActions({
                   () =>
                     cadastrarEnvioGarantia(garantia.id, {
                       nfgNumero: nfg,
+                      numeroOrcamento,
                       transportadoraNome: transportadora,
                       dataEnvio,
                       freteConta: frete,
                     }),
                   {
                     nfgNumero: nfg,
+                    numeroOrcamento: numeroOrcamento || null,
                     transportadoraNome: transportadora || null,
                     dataEnvio: dataEnvio || null,
                     freteConta: frete || null,
@@ -681,6 +693,7 @@ function DadosGarantia({ garantia }: { garantia: Garantia }) {
           </p>
           <Field label="Prazo da garantia" value={garantia.prazoGarantia} />
           <Field label="NFG (nota fiscal de garantia)" value={garantia.nfgNumero} />
+          <Field label="Número do orçamento" value={garantia.numeroOrcamento} />
           <Field label="Transportadora" value={garantia.transportadoraNome} />
           <Field label="Data de envio" value={garantia.dataEnvio} />
           <Field label="Frete" value={frete} />

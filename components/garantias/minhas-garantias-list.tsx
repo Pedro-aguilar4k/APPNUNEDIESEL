@@ -291,6 +291,7 @@ function GarantiaDetalhe({ garantia, onClose }: { garantia: Garantia | null; onC
                   <dl className="grid gap-3 sm:grid-cols-2">
                     <Linha label="Prazo da garantia" value={g.prazoGarantia} />
                     <Linha label="NFG (nota fiscal de garantia)" value={g.nfgNumero} />
+                    <Linha label="Número do orçamento" value={g.numeroOrcamento} />
                     <Linha label="Transportadora" value={g.transportadoraNome} />
                     <Linha label="Data de envio" value={g.dataEnvio} />
                     <Linha

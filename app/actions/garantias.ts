@@ -265,7 +265,13 @@ export async function validarPrazoGarantia(
  */
 export async function cadastrarEnvioGarantia(
   id: number,
-  input: { nfgNumero: string; transportadoraNome?: string; dataEnvio?: string; freteConta?: string },
+  input: {
+    nfgNumero: string
+    numeroOrcamento?: string
+    transportadoraNome?: string
+    dataEnvio?: string
+    freteConta?: string
+  },
 ): Promise<{ ok: boolean; error?: string }> {
   try {
     const actor = await requirePermission("gerenciar_garantia")
@@ -283,6 +289,7 @@ export async function cadastrarEnvioGarantia(
       .update(garantias)
       .set({
         nfgNumero: nfg,
+        numeroOrcamento: clean(input.numeroOrcamento),
         transportadoraNome: clean(input.transportadoraNome),
         dataEnvio: clean(input.dataEnvio),
         freteConta: frete,
@@ -425,7 +432,7 @@ export async function rejeitarGarantia(
   }
 }
 
-/** Equipe interna registra análise técnica / resultado / observação. */
+/** Equipe interna registra análise técnica / resultado / observaç��o. */
 export async function atualizarAnaliseGarantia(
   id: number,
   input: { analiseTecnica?: string; resultado?: string | null; observacaoInterna?: string },
