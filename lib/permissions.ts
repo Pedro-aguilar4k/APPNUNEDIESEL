@@ -1,5 +1,4 @@
 // Papeis e permissoes do sistema de conferencia de NF-e.
-// Portado 1:1 do backend FastAPI original (services/auth.py).
 
 export const ROLES = ["admin", "gerente", "comprador", "estoquista", "vendedor"] as const
 export type Role = (typeof ROLES)[number]

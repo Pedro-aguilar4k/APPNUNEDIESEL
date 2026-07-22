@@ -29,7 +29,10 @@ export type ImportResult =
     }
   | { ok: false; error: string }
 
-export async function importNfeXml(xmlContent: string): Promise<ImportResult> {
+export async function importNfeXml(
+  xmlContent: string,
+  origem: "xml" | "reconhecimento" = "xml",
+): Promise<ImportResult> {
   const actor = await requirePermission("gerenciar_notas")
 
   let parsed: ReturnType<typeof parseNfeXml>
@@ -91,7 +94,7 @@ export async function importNfeXml(xmlContent: string): Promise<ImportResult> {
       dataEmissao: header.dataEmissao ? new Date(header.dataEmissao) : null,
       valorTotal: header.valorTotal ? String(header.valorTotal) : null,
       status: "pendente",
-      origem: "xml",
+      origem,
       totalItens: items.length,
       createdBy: actor.id,
     })
@@ -136,16 +139,17 @@ export async function importNfeXml(xmlContent: string): Promise<ImportResult> {
     })
   }
 
+  const reconhecimento = origem === "reconhecimento"
   await registrarLog({
     actor,
-    area: "importacao",
+    area: reconhecimento ? "reconhecimento" : "importacao",
     acao: "importou",
-    detalhe: `Importou a NF-e ${header.numero ?? "s/nº"}${
+    detalhe: `${reconhecimento ? "Importou para reconhecimento" : "Importou"} a NF-e ${header.numero ?? "s/nº"}${
       header.fornecedorNome ? ` de ${header.fornecedorNome}` : ""
     } (${items.length} ${items.length === 1 ? "item" : "itens"}, ${comMatch} com vínculo).`,
   })
 
-  revalidatePath("/importar")
+  revalidatePath(reconhecimento ? "/reconhecimento" : "/importar")
   revalidatePath("/conferencia")
   return { ok: true, notaId: nota.id, totalItens: items.length, comMatch, pendentes: items.length - comMatch }
 }
@@ -165,12 +169,25 @@ export type NotaListItem = {
   createdAt: Date
 }
 
-export async function listNotas(params?: { search?: string; status?: string }): Promise<NotaListItem[]> {
+export async function listNotas(params?: {
+  search?: string
+  status?: string
+  origem?: "xml" | "reconhecimento"
+}): Promise<NotaListItem[]> {
   await requirePermission("gerenciar_notas")
   const search = params?.search?.trim()
   const status = params?.status?.trim()
 
   const conditions = []
+
+  // A aba Reconhecimento mostra apenas notas de reconhecimento; a de Importação
+  // mostra o restante (NF-e comuns), sem misturar os dois fluxos.
+  if (params?.origem === "reconhecimento") {
+    conditions.push(eq(notas.origem, "reconhecimento"))
+  } else {
+    conditions.push(sql`${notas.origem} <> 'reconhecimento'`)
+  }
+
   if (search) {
     conditions.push(
       or(

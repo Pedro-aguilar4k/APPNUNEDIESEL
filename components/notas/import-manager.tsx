@@ -3,7 +3,7 @@
 import { useState, useRef, useCallback } from "react"
 import useSWR from "swr"
 import Link from "next/link"
-import { Upload, FileText, Loader2, Trash2, Eye, ClipboardList, Link2 } from "lucide-react"
+import { Upload, FileText, Loader2, Trash2, Eye, ClipboardList, Link2, PackagePlus } from "lucide-react"
 import { useRouter } from "next/navigation"
 import { toast } from "sonner"
 import { Button } from "@/components/ui/button"
@@ -37,7 +37,39 @@ function fmtCurrency(v: string | null) {
   return Number(v).toLocaleString("pt-BR", { style: "currency", currency: "BRL" })
 }
 
-export function ImportManager() {
+type Modo = "importacao" | "reconhecimento"
+
+const TEXTOS: Record<Modo, {
+  origem: "xml" | "reconhecimento"
+  vincularBase: string
+  dropTitulo: string
+  dropSub: string
+  listaTitulo: string
+  vazio: string
+  acaoVincular: string
+}> = {
+  importacao: {
+    origem: "xml",
+    vincularBase: "/importar",
+    dropTitulo: "Arraste arquivos XML aqui",
+    dropSub: "ou selecione os arquivos da NF-e para importar",
+    listaTitulo: "Notas importadas",
+    vazio: "Nenhuma nota importada ainda.",
+    acaoVincular: "Vincular",
+  },
+  reconhecimento: {
+    origem: "reconhecimento",
+    vincularBase: "/reconhecimento",
+    dropTitulo: "Arraste o XML para absorver os produtos",
+    dropSub: "os itens da nota entram no cadastro assim que você informa o código interno",
+    listaTitulo: "Notas de reconhecimento",
+    vazio: "Nenhuma nota reconhecida ainda. Importe um XML para absorver os produtos.",
+    acaoVincular: "Reconhecer",
+  },
+}
+
+export function ImportManager({ modo = "importacao" }: { modo?: Modo }) {
+  const t = TEXTOS[modo]
   const router = useRouter()
   const [search, setSearch] = useState("")
   const [status, setStatus] = useState("todos")
@@ -46,37 +78,32 @@ export function ImportManager() {
   const inputRef = useRef<HTMLInputElement>(null)
 
   const { data: notasList, mutate, isLoading } = useSWR(
-    ["notas", search, status],
-    () => listNotas({ search, status }),
+    ["notas", modo, search, status],
+    () => listNotas({ search, status, origem: t.origem }),
   )
 
   const handleFiles = useCallback(
     async (files: FileList | null) => {
       if (!files || files.length === 0) return
       setUploading(true)
-      let ok = 0
       let dup = 0
-      let fail = 0
       const fileArray = Array.from(files)
-      const importadas: { notaId: number; pendentes: number }[] = []
+      const importadas: { notaId: number }[] = []
       for (const file of fileArray) {
         try {
           const text = await file.text()
-          const res = await importNfeXml(text)
+          const res = await importNfeXml(text, t.origem)
           if (res.ok) {
             if (res.duplicada) {
               dup++
             } else {
-              ok++
-              importadas.push({ notaId: res.notaId, pendentes: res.pendentes })
+              importadas.push({ notaId: res.notaId })
               toast.success(`${file.name}: ${res.totalItens} itens, ${res.comMatch} reconhecido(s)`)
             }
           } else {
-            fail++
             toast.error(`${file.name}: ${res.error}`)
           }
         } catch {
-          fail++
           toast.error(`${file.name}: falha ao ler o arquivo`)
         }
       }
@@ -87,10 +114,10 @@ export function ImportManager() {
       // Importou uma única nota nova? Vai direto para a tela de vinculação,
       // onde o usuário informa os códigos internos e confere todos os dados.
       if (importadas.length === 1) {
-        router.push(`/importar/${importadas[0].notaId}/vincular`)
+        router.push(`${t.vincularBase}/${importadas[0].notaId}/vincular`)
       }
     },
-    [mutate, router],
+    [mutate, router, t],
   )
 
   async function handleDelete(id: number) {
@@ -118,13 +145,19 @@ export function ImportManager() {
       >
         <div className="flex flex-col items-center justify-center gap-3 text-center">
           <div className="flex h-12 w-12 items-center justify-center rounded-full bg-accent-brand/10 text-accent-brand">
-            {uploading ? <Loader2 className="h-6 w-6 animate-spin" /> : <Upload className="h-6 w-6" />}
+            {uploading ? (
+              <Loader2 className="h-6 w-6 animate-spin" />
+            ) : modo === "reconhecimento" ? (
+              <PackagePlus className="h-6 w-6" />
+            ) : (
+              <Upload className="h-6 w-6" />
+            )}
           </div>
           <div>
             <p className="font-medium text-foreground">
-              {uploading ? "Processando NF-e..." : "Arraste arquivos XML aqui"}
+              {uploading ? "Processando NF-e..." : t.dropTitulo}
             </p>
-            <p className="text-sm text-muted-foreground">ou selecione os arquivos da NF-e para importar</p>
+            <p className="text-sm text-muted-foreground">{t.dropSub}</p>
           </div>
           <input
             ref={inputRef}
@@ -148,20 +181,22 @@ export function ImportManager() {
 
       <div className="flex flex-col gap-4">
         <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
-          <h2 className="text-lg font-semibold text-foreground">Notas importadas</h2>
+          <h2 className="text-lg font-semibold text-foreground">{t.listaTitulo}</h2>
           <div className="flex items-center gap-2">
-            <Select value={status} onValueChange={setStatus}>
-              <SelectTrigger className="w-40">
-                <SelectValue />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="todos">Todos os status</SelectItem>
-                <SelectItem value="pendente">Pendente</SelectItem>
-                <SelectItem value="em_conferencia">Em conferência</SelectItem>
-                <SelectItem value="conferida">Conferida</SelectItem>
-                <SelectItem value="divergente">Divergente</SelectItem>
-              </SelectContent>
-            </Select>
+            {modo === "importacao" && (
+              <Select value={status} onValueChange={setStatus}>
+                <SelectTrigger className="w-40">
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="todos">Todos os status</SelectItem>
+                  <SelectItem value="pendente">Pendente</SelectItem>
+                  <SelectItem value="em_conferencia">Em conferência</SelectItem>
+                  <SelectItem value="conferida">Conferida</SelectItem>
+                  <SelectItem value="divergente">Divergente</SelectItem>
+                </SelectContent>
+              </Select>
+            )}
             <SearchBar value={search} onChange={setSearch} placeholder="Buscar nota ou fornecedor..." />
           </div>
         </div>
@@ -189,7 +224,7 @@ export function ImportManager() {
               ) : !notasList || notasList.length === 0 ? (
                 <TableRow>
                   <TableCell colSpan={7} className="py-10 text-center text-muted-foreground">
-                    Nenhuma nota importada ainda.
+                    {t.vazio}
                   </TableCell>
                 </TableRow>
               ) : (
@@ -197,42 +232,39 @@ export function ImportManager() {
                   <TableRow key={n.id}>
                     <TableCell className="font-medium">
                       {n.numero ? `Nº ${n.numero}` : `#${n.id}`}
-                      <span className="ml-2 rounded bg-muted px-1.5 py-0.5 text-xs uppercase text-muted-foreground">
-                        {n.origem}
-                      </span>
                     </TableCell>
                     <TableCell className="max-w-56 truncate">{n.fornecedorNome ?? "—"}</TableCell>
                     <TableCell>{fmtDate(n.dataEmissao)}</TableCell>
                     <TableCell className="text-right tabular-nums">{fmtCurrency(n.valorTotal)}</TableCell>
                     <TableCell className="text-center tabular-nums">
-                      {n.itensConferidos ?? 0}/{n.totalItens ?? 0}
+                      {modo === "reconhecimento"
+                        ? `${(n.totalItens ?? 0) - n.itensPendentes}/${n.totalItens ?? 0}`
+                        : `${n.itensConferidos ?? 0}/${n.totalItens ?? 0}`}
                     </TableCell>
                     <TableCell>
                       <NotaStatusBadge status={n.status} />
                     </TableCell>
                     <TableCell className="text-right">
                       <div className="flex justify-end gap-1">
-                        {n.status === "conferida" || n.status === "divergente" ? (
-                          <Button
-                            asChild
-                            size="sm"
-                            variant="outline"
-                            className="h-8 gap-1.5 px-2.5 text-xs"
-                          >
+                        {modo === "reconhecimento" ? (
+                          <Button asChild size="sm" className="h-8 gap-1.5 px-2.5 text-xs">
+                            <Link href={`${t.vincularBase}/${n.id}/vincular`} aria-label="Reconhecer produtos da nota">
+                              <PackagePlus className="h-3.5 w-3.5" />
+                              {n.itensPendentes > 0 ? `${t.acaoVincular} (${n.itensPendentes})` : "Revisar"}
+                            </Link>
+                          </Button>
+                        ) : n.status === "conferida" || n.status === "divergente" ? (
+                          <Button asChild size="sm" variant="outline" className="h-8 gap-1.5 px-2.5 text-xs">
                             <Link href={`/estoque/conferencia/${n.id}`} aria-label="Ver relatório da nota">
                               <ClipboardList className="h-3.5 w-3.5" />
                               Relatório
                             </Link>
                           </Button>
                         ) : n.status === "pendente" ? (
-                          <Button
-                            asChild
-                            size="sm"
-                            className="h-8 gap-1.5 px-2.5 text-xs"
-                          >
-                            <Link href={`/importar/${n.id}/vincular`} aria-label="Vincular produtos da nota">
+                          <Button asChild size="sm" className="h-8 gap-1.5 px-2.5 text-xs">
+                            <Link href={`${t.vincularBase}/${n.id}/vincular`} aria-label="Vincular produtos da nota">
                               <Link2 className="h-3.5 w-3.5" />
-                              {n.itensPendentes > 0 ? `Vincular (${n.itensPendentes})` : "Revisar"}
+                              {n.itensPendentes > 0 ? `${t.acaoVincular} (${n.itensPendentes})` : "Revisar"}
                             </Link>
                           </Button>
                         ) : (

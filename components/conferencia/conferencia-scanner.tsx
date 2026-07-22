@@ -308,58 +308,74 @@ export function ConferenciaScanner({ initial, canBind }: { initial: ConferenciaD
 
         {/* Item ativo / feedback grande */}
         <div
-          className={`flex min-h-32 flex-col items-center justify-center gap-2 rounded-lg border-2 p-6 text-center transition-colors ${
+          className={`flex min-h-64 flex-col items-center justify-center gap-4 rounded-xl border-2 p-6 text-center transition-colors sm:p-8 ${
             fb ? fb.color : "border-dashed border-border text-muted-foreground"
           }`}
           aria-live="polite"
         >
           {last && FbIcon ? (
-            <div className="flex w-full flex-col items-center gap-3">
-              <FbIcon className="h-10 w-10" />
-              <p className="text-lg font-bold text-balance">{last.message}</p>
-              {last.item?.devolucao && (
-                <span className="inline-flex items-center gap-1 rounded-md bg-destructive px-2.5 py-1 text-sm font-bold uppercase tracking-wide text-destructive-foreground">
-                  <RotateCcw className="h-4 w-4" />
-                  Devolução
-                </span>
-              )}
-              {last.item?.compradorNome && (
-                <p className="inline-flex items-center gap-1 text-sm font-medium">
-                  <Truck className="h-4 w-4" />
-                  Entregar para {last.item.compradorNome}
-                </p>
-              )}
+            <div className="flex w-full flex-col items-center gap-4">
+              <FbIcon className="h-16 w-16 shrink-0" />
+              <p className="text-2xl font-extrabold leading-tight text-balance sm:text-3xl">{last.message}</p>
+
+              <div className="flex flex-wrap items-center justify-center gap-2">
+                {last.item?.devolucao && (
+                  <span className="inline-flex items-center gap-1.5 rounded-lg bg-destructive px-3 py-1.5 text-base font-bold uppercase tracking-wide text-destructive-foreground">
+                    <RotateCcw className="h-5 w-5" />
+                    Devolução
+                  </span>
+                )}
+                {last.item?.compradorNome && (
+                  <span className="inline-flex items-center gap-1.5 rounded-lg bg-primary px-3 py-1.5 text-base font-semibold text-primary-foreground">
+                    <Truck className="h-5 w-5" />
+                    Entregar para {last.item.compradorNome}
+                  </span>
+                )}
+              </div>
 
               {/* Ficha da peça bipada — dados completos, sem valores. */}
               {last.item && (
-                <div className="mt-1 w-full max-w-md rounded-lg border border-border bg-card p-4 text-left text-foreground">
-                  <p className="mb-3 text-base font-semibold leading-snug text-balance">
-                    {last.item.produtoDescricao ?? last.item.descricaoNfe ?? "Sem descrição"}
-                  </p>
-                  <dl className="grid grid-cols-2 gap-x-4 gap-y-2.5">
-                    <FichaCampo label="Código original" valor={last.item.cprod} mono />
-                    <FichaCampo label="Código interno" valor={last.item.produtoCodigo} mono />
-                    <FichaCampo label="EAN" valor={last.item.ean} mono />
-                    <div>
-                      <dt className="text-[11px] font-medium uppercase tracking-wide text-muted-foreground">
+                <div className="mt-1 w-full max-w-xl overflow-hidden rounded-xl border border-border bg-card text-left text-foreground shadow-sm">
+                  {/* Descrição + quantidade em destaque (o dado mais importante ao bipar) */}
+                  <div className="flex flex-col gap-4 border-b border-border p-5 sm:flex-row sm:items-center sm:justify-between">
+                    <p className="text-lg font-bold leading-snug text-balance sm:text-xl">
+                      {last.item.produtoDescricao ?? last.item.descricaoNfe ?? "Sem descrição"}
+                    </p>
+                    <div className="shrink-0 rounded-lg bg-muted px-4 py-2 text-center">
+                      <span className="block text-[11px] font-semibold uppercase tracking-wide text-muted-foreground">
                         Conferido
-                      </dt>
-                      <dd className="mt-0.5 text-sm font-bold tabular-nums text-foreground">
-                        {last.item.quantidadeConferida} / {last.item.quantidade} {last.item.unidade ?? ""}
-                      </dd>
+                      </span>
+                      <span className="block text-3xl font-extrabold tabular-nums leading-none text-foreground sm:text-4xl">
+                        {last.item.quantidadeConferida}
+                        <span className="text-xl text-muted-foreground">/{last.item.quantidade}</span>
+                      </span>
+                      {last.item.unidade && (
+                        <span className="block text-xs font-medium uppercase text-muted-foreground">
+                          {last.item.unidade}
+                        </span>
+                      )}
                     </div>
+                  </div>
+                  {/* Códigos em pílulas grandes e legíveis */}
+                  <dl className="grid grid-cols-1 gap-3 p-5 sm:grid-cols-3">
+                    <FichaCampo label="Código original" valor={last.item.cprod} />
+                    <FichaCampo label="Código interno" valor={last.item.produtoCodigo} />
+                    <FichaCampo label="EAN" valor={last.item.ean} />
                   </dl>
                 </div>
               )}
 
               {last.scanned?.descricao && last.tipo === "produto_errado" && (
-                <p className="text-xs opacity-70 text-balance">Você bipou: {last.scanned.descricao}</p>
+                <p className="text-sm opacity-70 text-balance">Você bipou: {last.scanned.descricao}</p>
               )}
             </div>
           ) : (
             <>
-              <ScanLine className="h-10 w-10" />
-              <p className="text-lg font-medium text-balance">Bipe o código de barras do produto</p>
+              <ScanLine className="h-16 w-16" />
+              <p className="text-xl font-semibold text-balance sm:text-2xl">Bipe o código de barras do produto</p>
+              <p className="text-sm text-muted-foreground text-balance">
+                Aponte o leitor para o código da peça — o resultado aparece aqui em destaque.
+              </p>
             </>
           )}
         </div>
@@ -546,12 +562,12 @@ function BipCodigoInline({ onSubmit }: { onSubmit: (value: string) => void }) {
   )
 }
 
-/** Campo da ficha da peça bipada (rótulo + valor). */
-function FichaCampo({ label, valor, mono }: { label: string; valor?: string | null; mono?: boolean }) {
+/** Campo da ficha da peça bipada (rótulo + valor) em formato de pílula legível. */
+function FichaCampo({ label, valor }: { label: string; valor?: string | null }) {
   return (
-    <div>
-      <dt className="text-[11px] font-medium uppercase tracking-wide text-muted-foreground">{label}</dt>
-      <dd className={`mt-0.5 truncate text-sm font-semibold text-foreground ${mono ? "font-mono" : ""}`}>
+    <div className="rounded-lg border border-border bg-muted/40 px-3 py-2">
+      <dt className="text-[11px] font-semibold uppercase tracking-wide text-muted-foreground">{label}</dt>
+      <dd className="mt-0.5 truncate font-mono text-base font-bold text-foreground">
         {valor?.trim() ? valor : "—"}
       </dd>
     </div>

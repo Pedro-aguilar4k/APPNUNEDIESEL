@@ -78,6 +78,11 @@ export function VinculacaoManager({
   const router = useRouter()
   const { nota, itens } = data
 
+  // No fluxo de Reconhecimento a nota só serve para absorver produtos: não há
+  // conferência (bipagem) depois, então os textos e o destino mudam.
+  const reconhecimento = nota.origem === "reconhecimento"
+  const voltarHref = reconhecimento ? "/reconhecimento" : "/importar"
+
   // Itens já resolvidos automaticamente (EAN / equivalência aprendida) não
   // aparecem para vincular — o usuário só cuida dos pendentes.
   const jaVinculados = useMemo(() => itens.filter((i) => i.produtoId != null), [itens])
@@ -229,14 +234,22 @@ export function VinculacaoManager({
     try {
       const res = await salvarVinculacoes(nota.id, entradas)
       if (res.ok) {
-        toast.success(
-          `Vinculação concluída: ${res.vinculados} item(ns) vinculado(s)` +
-            (res.criados ? `, ${res.criados} produto(s) criado(s).` : ".") +
-            " A nota está pronta para conferência do estoquista.",
-        )
-        // A conferência (bipagem) é feita pelo estoquista. Após vincular, o
-        // comprador volta para a lista de importação.
-        router.push("/importar")
+        if (reconhecimento) {
+          toast.success(
+            `${res.vinculados} produto(s) reconhecido(s)` +
+              (res.criados ? `, ${res.criados} novo(s) no cadastro.` : ".") +
+              " Os itens já estão na lista de produtos.",
+          )
+        } else {
+          toast.success(
+            `Vinculação concluída: ${res.vinculados} item(ns) vinculado(s)` +
+              (res.criados ? `, ${res.criados} produto(s) criado(s).` : ".") +
+              " A nota está pronta para conferência do estoquista.",
+          )
+        }
+        // Reconhecimento volta para /reconhecimento; importação de NF-e volta
+        // para /importar (a conferência/bipagem é feita depois pelo estoquista).
+        router.push(voltarHref)
       } else {
         toast.error(res.error)
       }
@@ -253,16 +266,18 @@ export function VinculacaoManager({
       <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
         <div>
           <Button asChild variant="ghost" size="sm" className="mb-2 -ml-2 h-8 gap-1.5 text-muted-foreground">
-            <Link href="/importar">
+            <Link href={voltarHref}>
               <ArrowLeft className="h-4 w-4" />
-              Voltar para importação
+              {reconhecimento ? "Voltar para reconhecimento" : "Voltar para importação"}
             </Link>
           </Button>
           <h1 className="text-2xl font-semibold tracking-tight text-foreground text-balance">
-            Vincular produtos da NF-e
+            {reconhecimento ? "Reconhecer produtos da NF-e" : "Vincular produtos da NF-e"}
           </h1>
           <p className="mt-1 text-sm text-muted-foreground text-pretty">
-            Informe o código interno de cada produto. Códigos novos criam o produto automaticamente.
+            {reconhecimento
+              ? "Informe o código interno de cada produto. Ao salvar, os itens entram direto no cadastro de produtos."
+              : "Informe o código interno de cada produto. Códigos novos criam o produto automaticamente."}
           </p>
         </div>
         <StepIndicator etapa={etapa} />

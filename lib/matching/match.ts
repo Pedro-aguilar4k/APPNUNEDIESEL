@@ -1,8 +1,7 @@
 // Motor de matching de itens de NF-e para produtos internos.
-// Portado 1:1 da lógica do backend (services/matching.py), com a diferença de que
-// os candidatos por similaridade são pré-filtrados com pg_trgm no Postgres (Neon)
-// em vez de carregar todos os produtos em memória. Os scores finais são calculados
-// em JS com as mesmas fórmulas do original, garantindo resultados idênticos.
+// Os candidatos por similaridade são pré-filtrados com pg_trgm no Postgres (Neon)
+// em vez de carregar todos os produtos em memória; os scores finais são calculados
+// em JS com as fórmulas de normalize.ts.
 
 import { db } from "@/lib/db"
 import { produtos, equivalenciaProdutos, notas, itensNota } from "@/lib/db/schema"
