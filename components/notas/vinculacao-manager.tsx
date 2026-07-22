@@ -19,6 +19,8 @@ import {
   Truck,
   Minus,
   Plus,
+  ListChecks,
+  UserRound,
 } from "lucide-react"
 import { cn } from "@/lib/utils"
 import { toast } from "sonner"
@@ -66,7 +68,7 @@ function fmtQty(v: string | null) {
   return Number.isInteger(n) ? String(n) : n.toLocaleString("pt-BR", { maximumFractionDigits: 3 })
 }
 
-type Etapa = "vincular" | "conferencia"
+type Etapa = "resumo" | "vincular" | "conferencia"
 
 export function VinculacaoManager({
   data,
@@ -83,7 +85,8 @@ export function VinculacaoManager({
   const jaVinculados = useMemo(() => itens.filter((i) => i.produtoId != null), [itens])
   const pendentes = useMemo(() => itens.filter((i) => i.produtoId == null), [itens])
 
-  const [etapa, setEtapa] = useState<Etapa>(pendentes.length > 0 ? "vincular" : "conferencia")
+  const [etapa, setEtapa] = useState<Etapa>(pendentes.length > 0 ? "resumo" : "conferencia")
+  const [compradorNota, setCompradorNota] = useState<string>("")
   const [saving, setSaving] = useState(false)
 
   // Código interno digitado por item (itemId -> código).
@@ -170,6 +173,19 @@ export function VinculacaoManager({
       }
     }
     return null
+  }
+
+  function comecarVincular() {
+    // "Entregar para": pré-seleciona o comprador em todos os itens (editável depois).
+    if (compradorNota) {
+      setCompradorSel((prev) => {
+        const next = { ...prev }
+        for (const item of itens) next[item.id] = compradorNota
+        return next
+      })
+    }
+    setEtapa("vincular")
+    window.scrollTo({ top: 0, behavior: "smooth" })
   }
 
   async function irParaConferencia() {
@@ -267,7 +283,15 @@ export function VinculacaoManager({
 
       <NotaResumo nota={nota} pendentes={pendentes.length} jaVinculados={jaVinculados.length} />
 
-      {etapa === "vincular" ? (
+      {etapa === "resumo" ? (
+        <EtapaResumo
+          itens={itens}
+          compradores={compradores}
+          compradorNota={compradorNota}
+          onCompradorNotaChange={setCompradorNota}
+          onComecar={comecarVincular}
+        />
+      ) : etapa === "vincular" ? (
         <EtapaVincular
           pendentes={pendentes}
           jaVinculados={jaVinculados}
@@ -308,26 +332,21 @@ export function VinculacaoManager({
 }
 
 function StepIndicator({ etapa }: { etapa: Etapa }) {
+  const base = "flex items-center gap-1.5 rounded-full px-3 py-1 font-medium"
+  const on = "bg-accent-brand text-accent-brand-foreground"
+  const off = "bg-muted text-muted-foreground"
   return (
     <div className="flex items-center gap-2 text-sm">
-      <span
-        className={`flex items-center gap-1.5 rounded-full px-3 py-1 font-medium ${
-          etapa === "vincular"
-            ? "bg-accent-brand text-accent-brand-foreground"
-            : "bg-muted text-muted-foreground"
-        }`}
-      >
-        <Link2 className="h-3.5 w-3.5" /> 1. Vincular
+      <span className={`${base} ${etapa === "resumo" ? on : off}`}>
+        <ListChecks className="h-3.5 w-3.5" /> 1. Itens da nota
       </span>
       <div className="h-px w-4 bg-border" />
-      <span
-        className={`flex items-center gap-1.5 rounded-full px-3 py-1 font-medium ${
-          etapa === "conferencia"
-            ? "bg-accent-brand text-accent-brand-foreground"
-            : "bg-muted text-muted-foreground"
-        }`}
-      >
-        <CheckCircle2 className="h-3.5 w-3.5" /> 2. Conferência
+      <span className={`${base} ${etapa === "vincular" ? on : off}`}>
+        <Link2 className="h-3.5 w-3.5" /> 2. Vincular
+      </span>
+      <div className="h-px w-4 bg-border" />
+      <span className={`${base} ${etapa === "conferencia" ? on : off}`}>
+        <CheckCircle2 className="h-3.5 w-3.5" /> 3. Conferência
       </span>
     </div>
   )
@@ -389,6 +408,120 @@ function Campo({ rotulo, valor, span }: { rotulo: string; valor: string; span?: 
       <dd className="mt-0.5 truncate text-sm font-medium text-foreground" title={valor}>
         {valor}
       </dd>
+    </div>
+  )
+}
+
+/**
+ * Etapa 1 — Itens da nota. Listagem apenas visual (somente leitura) dos itens
+ * do XML, com o seletor "Entregar para" (define o comprador da nota toda) e o
+ * botão que inicia a vinculação.
+ */
+function EtapaResumo({
+  itens,
+  compradores,
+  compradorNota,
+  onCompradorNotaChange,
+  onComecar,
+}: {
+  itens: VinculacaoItem[]
+  compradores: Comprador[]
+  compradorNota: string
+  onCompradorNotaChange: (v: string) => void
+  onComecar: () => void
+}) {
+  const NONE = "__nenhum__"
+  return (
+    <div className="flex flex-col gap-5">
+      {/* Entregar para (comprador da nota toda) */}
+      <Card className="flex flex-col gap-4 p-5 sm:flex-row sm:items-end sm:justify-between">
+        <div className="flex-1">
+          <div className="mb-1.5 flex items-center gap-2 text-sm font-semibold text-foreground">
+            <UserRound className="h-4 w-4 text-accent-brand" />
+            Entregar para
+          </div>
+          <p className="mb-2 text-xs text-muted-foreground text-pretty">
+            Opcional — define o comprador responsável por toda a nota. Você pode ajustar item a item na próxima etapa.
+          </p>
+          <Select
+            value={compradorNota || NONE}
+            onValueChange={(v) => onCompradorNotaChange(v === NONE ? "" : v)}
+          >
+            <SelectTrigger className="w-full sm:max-w-xs">
+              <SelectValue placeholder="Selecione um comprador" />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value={NONE}>Ninguém por enquanto</SelectItem>
+              {compradores.map((c) => (
+                <SelectItem key={c.id} value={c.id}>
+                  {c.name}
+                </SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
+          {compradores.length === 0 && (
+            <p className="mt-1 text-xs text-muted-foreground">
+              Nenhum usuário com papel &quot;comprador&quot; cadastrado.
+            </p>
+          )}
+        </div>
+        <Button onClick={onComecar} className="gap-1.5">
+          Começar a vincular
+          <ArrowRight className="h-4 w-4" />
+        </Button>
+      </Card>
+
+      {/* Listagem visual dos itens */}
+      <Card className="overflow-hidden p-0">
+        <div className="flex items-center gap-2 border-b border-border px-5 py-3 text-sm font-semibold text-foreground">
+          <ListChecks className="h-4 w-4 text-accent-brand" />
+          Itens da nota ({itens.length})
+        </div>
+        <div className="overflow-x-auto">
+          <Table>
+            <TableHeader>
+              <TableRow>
+                <TableHead className="whitespace-nowrap">Cód. original</TableHead>
+                <TableHead>Descrição</TableHead>
+                <TableHead className="whitespace-nowrap text-right">Qtd.</TableHead>
+                <TableHead className="whitespace-nowrap text-right">Vlr. unit.</TableHead>
+                <TableHead className="whitespace-nowrap text-right">Vlr. total</TableHead>
+                <TableHead className="whitespace-nowrap text-right">ICMS</TableHead>
+                <TableHead className="whitespace-nowrap text-right">IPI</TableHead>
+                <TableHead className="whitespace-nowrap text-right">Impostos</TableHead>
+              </TableRow>
+            </TableHeader>
+            <TableBody>
+              {itens.map((item) => (
+                <TableRow key={item.id}>
+                  <TableCell className="whitespace-nowrap font-mono text-xs text-muted-foreground">
+                    {item.codigoFornecedor ?? "—"}
+                  </TableCell>
+                  <TableCell className="min-w-[220px] font-medium">{item.descricaoFornecedor ?? "—"}</TableCell>
+                  <TableCell className="whitespace-nowrap text-right tabular-nums">
+                    {fmtQty(item.quantidade)} {item.unidade ?? ""}
+                  </TableCell>
+                  <TableCell className="whitespace-nowrap text-right tabular-nums">
+                    {fmtCurrency(item.valorUnitario)}
+                  </TableCell>
+                  <TableCell className="whitespace-nowrap text-right tabular-nums">
+                    {fmtCurrency(item.valorTotal)}
+                  </TableCell>
+                  <TableCell className="whitespace-nowrap text-right tabular-nums text-muted-foreground">
+                    {fmtCurrency(item.icms)}
+                  </TableCell>
+                  <TableCell className="whitespace-nowrap text-right tabular-nums text-muted-foreground">
+                    {fmtCurrency(item.ipi)}
+                  </TableCell>
+                  <TableCell className="whitespace-nowrap text-right tabular-nums text-muted-foreground">
+                    {fmtCurrency(item.impostos)}
+                  </TableCell>
+                </TableRow>
+              ))}
+            </TableBody>
+          </Table>
+        </div>
+      </Card>
     </div>
   )
 }
