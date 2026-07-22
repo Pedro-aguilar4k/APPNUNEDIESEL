@@ -4,6 +4,7 @@ import { db } from "@/lib/db"
 import { notas, itensNota, produtos, equivalenciaProdutos, historicoAprendizado, user } from "@/lib/db/schema"
 import { and, eq, inArray, sql } from "drizzle-orm"
 import { requirePermission } from "@/lib/guards"
+import { registrarLog } from "@/lib/logs"
 import { revalidatePath } from "next/cache"
 
 function clean(v?: string | null) {
@@ -50,6 +51,7 @@ export type VinculacaoData = {
     valorTotal: string | null
     totalItens: number | null
     status: string
+    origem: string
   }
   itens: VinculacaoItem[]
 }
@@ -103,6 +105,7 @@ export async function getVinculacaoData(notaId: number): Promise<VinculacaoData 
       valorTotal: nota.valorTotal,
       totalItens: nota.totalItens,
       status: nota.status,
+      origem: nota.origem,
     },
     itens: rows,
   }
@@ -161,7 +164,7 @@ export type VinculacaoEntrada = {
 }
 
 export type SalvarVinculacoesResult =
-  | { ok: true; criados: number; vinculados: number }
+  | { ok: true; criados: number; vinculados: number; origem: string }
   | { ok: false; error: string }
 
 /**
@@ -339,12 +342,31 @@ export async function salvarVinculacoes(
       })
     }
 
+    // No fluxo de Reconhecimento a nota serve apenas para absorver produtos:
+    // ao salvar, os produtos já entraram no cadastro e a nota recebe um status
+    // terminal ("reconhecida"), sem seguir para conferência.
+    if (nota.origem === "reconhecimento") {
+      await db
+        .update(notas)
+        .set({ status: "reconhecida", updatedAt: new Date() })
+        .where(eq(notas.id, notaId))
+      await registrarLog({
+        actor,
+        area: "reconhecimento",
+        acao: "vinculou",
+        detalhe: `Reconheceu ${vinculados} produto(s) da NF-e ${nota.numero ?? `#${notaId}`}${
+          criados ? ` (${criados} novo(s) no cadastro)` : ""
+        }.`,
+      })
+      revalidatePath("/reconhecimento")
+    }
+
     revalidatePath("/importar")
     revalidatePath("/conferencia")
     revalidatePath("/produtos")
     revalidatePath("/equivalencias")
 
-    return { ok: true, criados, vinculados }
+    return { ok: true, criados, vinculados, origem: nota.origem }
   } catch (e) {
     return { ok: false, error: e instanceof Error ? e.message : "Erro ao salvar vinculações." }
   }

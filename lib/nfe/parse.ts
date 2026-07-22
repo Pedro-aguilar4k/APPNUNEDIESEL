@@ -1,5 +1,5 @@
-// Parser de XML de NF-e. Portado 1:1 do backend original (services/xml_parser.py),
-// usando fast-xml-parser. Suporta XML com e sem prefixo de namespace.
+// Parser de XML de NF-e usando fast-xml-parser.
+// Suporta XML com e sem prefixo de namespace.
 
 import { XMLParser } from "fast-xml-parser"
 

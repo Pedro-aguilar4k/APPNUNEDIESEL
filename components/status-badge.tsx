@@ -20,6 +20,7 @@ const NOTA_STATUS: Record<string, { label: string; className: string }> = {
   em_conferencia: { label: "Em conferência", className: "border-primary/30 bg-primary/10 text-primary" },
   conferida: { label: "Conferida", className: "border-success/30 bg-success/15 text-success" },
   divergente: { label: "Divergente", className: "border-destructive/30 bg-destructive/15 text-destructive" },
+  reconhecida: { label: "Reconhecida", className: "border-success/30 bg-success/15 text-success" },
 }
 
 export function NotaStatusBadge({ status }: { status: string }) {

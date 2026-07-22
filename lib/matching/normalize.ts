@@ -1,5 +1,4 @@
 // Normalização e similaridade de texto para o matching de produtos de autopeças.
-// Portado 1:1 do backend original (services/matching.py).
 
 export const ABBREVIATIONS: Record<string, string> = {
   "AMORT.": "AMORTECEDOR", AMORT: "AMORTECEDOR",
@@ -73,8 +72,7 @@ export function normalizeText(text: string): string {
 }
 
 /**
- * Implementa o algoritmo Ratcliff-Obershelp (equivalente ao SequenceMatcher.ratio() do Python)
- * para manter os scores idênticos ao backend original.
+ * Implementa o algoritmo Ratcliff-Obershelp (equivalente ao SequenceMatcher.ratio()).
  */
 function matchingBlocksLength(a: string, b: string): number {
   if (!a.length || !b.length) return 0
@@ -120,7 +118,7 @@ function sequenceRatio(a: string, b: string): number {
   return (2 * matchingBlocksLength(a, b)) / total
 }
 
-/** Similaridade combinada (40% sequência + 60% overlap de tokens), 0..100. Portado 1:1. */
+  /** Similaridade combinada (40% sequência + 60% overlap de tokens), 0..100. */
 export function calculateSimilarity(text1: string, text2: string): number {
   if (!text1 || !text2) return 0
   const seqRatio = sequenceRatio(text1, text2) * 100

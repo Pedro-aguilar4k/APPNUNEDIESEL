@@ -24,6 +24,6 @@ export async function registrarLog(entry: {
       detalhe: entry.detalhe,
     })
   } catch (e) {
-    console.error("[v0] falha ao registrar log:", e instanceof Error ? e.message : e)
+    console.error("Falha ao registrar log:", e instanceof Error ? e.message : e)
   }
 }
