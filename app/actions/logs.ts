@@ -4,7 +4,7 @@ import { db } from "@/lib/db"
 import { logs } from "@/lib/db/schema"
 import { and, desc, eq, ilike, or, type SQL } from "drizzle-orm"
 import { requirePermission } from "@/lib/guards"
-import { LOG_AREAS, type LogArea, type LogRow } from "@/lib/logs"
+import { LOG_AREAS, type LogArea, type LogRow } from "@/lib/logs-shared"
 
 /**
  * Lista o histórico de auditoria (mais recentes primeiro). Restrito a quem tem
