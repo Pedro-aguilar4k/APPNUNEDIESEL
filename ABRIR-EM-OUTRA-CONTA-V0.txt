@@ -1,0 +1,170 @@
+====================================================================
+ CONFERENCIA NF-e / APP NUNE DIESEL
+ Guia para abrir/rodar este projeto em OUTRA conta da v0 (ou Vercel)
+====================================================================
+
+Atualizado em: 21/07/2026
+
+Este documento lista TUDO o que voce precisa para levar o projeto para
+outra conta da v0 (ou rodar localmente / em outra conta Vercel) e deixar
+ele funcionando do zero.
+
+--------------------------------------------------------------------
+1) O QUE E O PROJETO (visao geral tecnica)
+--------------------------------------------------------------------
+- App web de conferencia de notas fiscais (NF-e), controle de estoque,
+  espera, garantias, cadastros e relatorios, com login por usuario/senha
+  e papeis de acesso (admin, gerente, comprador, estoquista, vendedor).
+
+- Stack principal:
+  * Next.js (App Router) + React 19
+  * TypeScript
+  * Tailwind CSS v3 (+ tailwindcss-animate) e componentes shadcn/ui (Radix)
+  * Banco de dados: PostgreSQL (Neon) acessado via driver "pg"
+  * ORM: Drizzle ORM (schema em lib/db/schema.ts)
+  * Autenticacao: Better Auth (plugins: username + admin)
+  * Graficos: Recharts
+  * Leitura de XML de NF-e: fast-xml-parser
+  * Geracao de PDF: pdf-lib | Planilhas: xlsx
+  * Notificacoes/UI: sonner, lucide-react, next-themes
+
+--------------------------------------------------------------------
+2) PRE-REQUISITOS
+--------------------------------------------------------------------
+- Uma conta v0 (ou Node.js 18+ instalado, se for rodar local).
+- Um banco de dados PostgreSQL. O recomendado e a integracao Neon
+  (dentro da v0/Vercel: Settings -> Integrations -> Neon).
+- Acesso ao repositorio do codigo (GitHub):
+  github.com/Pedro-aguilar4k/APPNUNEDIESEL
+
+--------------------------------------------------------------------
+3) COMO LEVAR O CODIGO PARA A OUTRA CONTA
+--------------------------------------------------------------------
+Opcao A (recomendada) - via GitHub:
+  1. Garanta que a outra conta v0 tenha acesso ao repositorio GitHub
+     (ou faca um fork/transfira o repo para a conta desejada).
+  2. Na nova conta v0: crie um projeto e conecte o repositorio GitHub
+     em Settings -> Git.
+
+Opcao B - via ZIP:
+  1. No projeto atual, use os tres pontinhos (canto superior direito)
+     -> "Download ZIP".
+  2. Importe o ZIP na nova conta / rode localmente.
+
+--------------------------------------------------------------------
+4) VARIAVEIS DE AMBIENTE (OBRIGATORIAS)
+--------------------------------------------------------------------
+O codigo usa as variaveis abaixo. Configure-as na nova conta em
+Settings -> Environment Variables (v0/Vercel) ou em um arquivo
+.env.local se rodar localmente.
+
+OBRIGATORIA:
+  DATABASE_URL
+    - String de conexao do PostgreSQL (Neon).
+    - Ex.: postgresql://usuario:senha@host/dbname?sslmode=require
+    - Se voce conectar a integracao Neon, ela cria essa variavel
+      automaticamente (as vezes com o nome DATABASE_URL ja pronto).
+
+RECOMENDADAS (auth em producao / dominio proprio):
+  BETTER_AUTH_URL
+    - URL publica exata do site (ex.: https://nunediesel.auto ou
+      https://seuprojeto.vercel.app). Evita erro "Invalid origin" no login.
+    - Em dev, se ausente, assume http://localhost:3000.
+
+OPCIONAIS (preenchidas automaticamente pela Vercel, NAO precisa criar):
+  VERCEL_URL, VERCEL_PROJECT_PRODUCTION_URL, V0_RUNTIME_URL, NODE_ENV
+    - Usadas como fallback para montar a URL/origens confiaveis do login.
+
+IMPORTANTE: NAO existe chave de API de terceiros neste projeto. O unico
+segredo essencial e a DATABASE_URL. Nao ha Stripe, nem AI Gateway, etc.
+
+--------------------------------------------------------------------
+5) CRIAR AS TABELAS NO BANCO (SCHEMA)
+--------------------------------------------------------------------
+As tabelas sao definidas em lib/db/schema.ts (Drizzle). Depois de
+configurar a DATABASE_URL, crie as tabelas com o Drizzle Kit:
+
+  npx drizzle-kit push
+
+Isso cria/atualiza todas as tabelas no banco novo:
+  - user, session, account, verification   (Better Auth)
+  - produtos, fornecedores                  (cadastros)
+  - equivalencia_produtos                   (de/para fornecedor)
+  - notas, itens_nota                       (NF-e importadas)
+  - espera_itens                            (fila de espera do estoque)
+  - garantias                               (tickets de garantia)
+  - preferencias_usuario                    (alertas por usuario)
+  - logs                                    (auditoria)
+
+Observacao: o projeto NAO usa pasta de migrations versionada; o fluxo
+e o "push" do schema direto (drizzle.config.ts -> dialect postgresql).
+
+--------------------------------------------------------------------
+6) PRIMEIRO ACESSO / CRIAR O ADMIN
+--------------------------------------------------------------------
+O sistema NAO tem cadastro publico (signUp desabilitado). O primeiro
+usuario admin e criado por uma tela de configuracao inicial (bootstrap):
+
+  1. Suba o app (dev: npm run dev / na v0 o preview ja roda sozinho).
+  2. Se o banco estiver vazio (nenhum usuario), o app mostra a tela de
+     "configuracao inicial" para criar o primeiro ADMINISTRADOR.
+     -> Informe nome, usuario e senha (min. 8 caracteres).
+  3. Depois disso, faca login e crie os demais usuarios em
+     "Usuarios" (somente admin), definindo o papel de cada um.
+
+Papeis disponiveis: admin, gerente, comprador, estoquista, vendedor.
+A aba "Logs" (auditoria) e visivel apenas para admin e gerente.
+
+Se estiver MIGRANDO um banco ja populado (mantendo os usuarios), o
+bootstrap nao aparece e voce usa os logins que ja existem. Caso perca a
+senha do admin, da para redefinir via SQL/script usando a funcao de hash
+do Better Auth (better-auth/crypto -> hashPassword) na coluna
+account.password do usuario admin.
+
+--------------------------------------------------------------------
+7) RODAR LOCALMENTE (opcional)
+--------------------------------------------------------------------
+  1. npm install        (ou pnpm install / yarn)
+  2. Crie .env.local com DATABASE_URL (e BETTER_AUTH_URL se quiser)
+  3. npx drizzle-kit push
+  4. npm run dev         -> http://localhost:3000
+
+Scripts disponiveis (package.json):
+  dev   -> next dev
+  build -> next build
+  start -> next start
+  lint  -> next lint
+
+--------------------------------------------------------------------
+8) DEPLOY / DOMINIO
+--------------------------------------------------------------------
+- Na nova conta Vercel/v0, o deploy acontece ao publicar (botao Publish)
+  ou automaticamente a cada commit se o GitHub estiver conectado.
+- Para dominio proprio (ex.: nunediesel.auto): Settings -> Domains,
+  adicione o dominio e configure o DNS conforme instrucoes da Vercel.
+  Ajuste BETTER_AUTH_URL para a URL final do dominio.
+
+--------------------------------------------------------------------
+9) CHECKLIST RAPIDO
+--------------------------------------------------------------------
+  [ ] Codigo na nova conta (GitHub conectado ou ZIP importado)
+  [ ] Banco PostgreSQL criado (integracao Neon recomendada)
+  [ ] DATABASE_URL configurada
+  [ ] (opcional) BETTER_AUTH_URL com a URL publica do site
+  [ ] npx drizzle-kit push  (tabelas criadas)
+  [ ] Primeiro admin criado na tela de configuracao inicial
+  [ ] Login OK e usuarios cadastrados
+  [ ] (opcional) Dominio proprio + deploy
+
+--------------------------------------------------------------------
+10) DADOS DE TESTE (opcional)
+--------------------------------------------------------------------
+O banco atual pode conter dados fake de teste (produtos, fornecedores,
+notas, garantias, espera e logs). Ao migrar para um banco novo/vazio,
+esses dados NAO vao junto (a menos que voce copie o dump do banco).
+Se quiser popular o banco novo com dados de exemplo, pode-se recriar um
+script de seed - basta pedir.
+
+====================================================================
+ FIM - Qualquer duvida, e so pedir ajuda aqui na v0.
+====================================================================
