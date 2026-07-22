@@ -1,9 +1,9 @@
 "use client"
 
-import { useMemo, useState, useTransition } from "react"
+import { useEffect, useMemo, useState, useTransition } from "react"
 import { toast } from "sonner"
 import * as XLSX from "xlsx"
-import { Plus, Search, PackageSearch, Minus, MapPin, Loader2, TriangleAlert, FileDown } from "lucide-react"
+import { Plus, Search, PackageSearch, Minus, MapPin, Loader2, TriangleAlert, FileDown, Pencil, Lock } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
@@ -17,7 +17,7 @@ import {
   DialogTitle,
 } from "@/components/ui/dialog"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
-import { adicionarEspera, removerUnidadesEspera } from "@/app/actions/espera"
+import { adicionarEspera, ajustarSaldoEspera, editarEspera, removerUnidadesEspera } from "@/app/actions/espera"
 import {
   ESPERA_TIPOS,
   ESPERA_TIPO_LABELS,
@@ -33,36 +33,75 @@ export function EsperaManager({ itens }: { itens: EsperaItem[] }) {
   const [addOpen, setAddOpen] = useState(false)
   const [addAlvo, setAddAlvo] = useState<EsperaItem | null>(null)
   const [removerAlvo, setRemoverAlvo] = useState<EsperaItem | null>(null)
+  const [editarAlvo, setEditarAlvo] = useState<EsperaItem | null>(null)
   const [pending, startTransition] = useTransition()
+
+  // Lista local para resposta instantânea dos botões +/-. É sincronizada com o
+  // que vem do servidor sempre que a página revalida.
+  const [list, setList] = useState(itens)
+  useEffect(() => setList(itens), [itens])
+
+  // IDs com ajuste em andamento (evita travar toda a UI num único `pending`).
+  const [ajustando, setAjustando] = useState<Set<number>>(new Set())
 
   const termo = busca.trim().toLowerCase()
 
   // Resultado principal: apenas o item com código EXATAMENTE igual ao pesquisado.
   const encontrado = useMemo(() => {
     if (!termo) return null
-    return itens.find((i) => i.codigoInterno.toLowerCase() === termo) ?? null
-  }, [termo, itens])
+    return list.find((i) => i.codigoInterno.toLowerCase() === termo) ?? null
+  }, [termo, list])
 
   // Similares: códigos parecidos (contêm o termo) ou descrição relacionada,
   // excluindo o resultado exato. Só aparecem ao clicar em "Buscar similares".
   const similares = useMemo(() => {
     if (!termo) return []
-    return itens.filter(
+    return list.filter(
       (i) =>
         i.codigoInterno.toLowerCase() !== termo &&
         (i.codigoInterno.toLowerCase().includes(termo) || (i.descricao ?? "").toLowerCase().includes(termo)),
     )
-  }, [termo, itens])
+  }, [termo, list])
 
-  const totalGeral = itens.reduce((s, i) => s + i.totalUnidades, 0)
+  const totalGeral = list.reduce((s, i) => s + i.totalUnidades, 0)
+
+  // Ajuste rápido de 1 unidade com atualização otimista imediata. O total em
+  // unidades é a fonte da verdade; a exibição de caixas/pacotes se recalcula.
+  function ajustar(item: EsperaItem, delta: 1 | -1) {
+    if (delta < 0 && item.totalUnidades <= 0) return
+    const novo = item.totalUnidades + delta
+
+    // Atualização otimista (remove da lista se zerar).
+    setList((prev) =>
+      novo <= 0
+        ? prev.filter((i) => i.id !== item.id)
+        : prev.map((i) => (i.id === item.id ? { ...i, totalUnidades: novo } : i)),
+    )
+    setAjustando((prev) => new Set(prev).add(item.id))
+
+    startTransition(async () => {
+      const res = await ajustarSaldoEspera(item.id, delta)
+      setAjustando((prev) => {
+        const n = new Set(prev)
+        n.delete(item.id)
+        return n
+      })
+      if (!res.ok) {
+        toast.error(res.error ?? "Não foi possível ajustar.")
+        setList(itens) // reverte para o estado do servidor
+      } else if (res.zerado) {
+        toast.success(`${item.codigoInterno} zerado e removido da espera`)
+      }
+    })
+  }
 
   // Gera e baixa uma planilha .xlsx com todos os itens da espera.
   function exportarExcel() {
-    if (itens.length === 0) {
+    if (list.length === 0) {
       toast.error("Não há itens na espera para exportar.")
       return
     }
-    const linhas = itens.map((item) => {
+    const linhas = list.map((item) => {
       const r = resumoEmbalagem(item)
       return {
         "Código": item.codigoInterno,
@@ -140,8 +179,11 @@ export function EsperaManager({ itens }: { itens: EsperaItem[] }) {
         {termo && encontrado && (
           <ResultadoCard
             item={encontrado}
+            ajustando={ajustando.has(encontrado.id)}
+            onQuick={(d) => ajustar(encontrado, d)}
             onAdicionar={() => setAddAlvo(encontrado)}
             onRemover={() => setRemoverAlvo(encontrado)}
+            onEditar={() => setEditarAlvo(encontrado)}
           />
         )}
 
@@ -171,8 +213,11 @@ export function EsperaManager({ itens }: { itens: EsperaItem[] }) {
               <ResultadoCard
                 key={item.id}
                 item={item}
+                ajustando={ajustando.has(item.id)}
+                onQuick={(d) => ajustar(item, d)}
                 onAdicionar={() => setAddAlvo(item)}
                 onRemover={() => setRemoverAlvo(item)}
+                onEditar={() => setEditarAlvo(item)}
               />
             ))}
           </div>
@@ -186,11 +231,11 @@ export function EsperaManager({ itens }: { itens: EsperaItem[] }) {
             Itens na espera
           </p>
           <span className="text-sm text-muted-foreground">
-            {itens.length} {itens.length === 1 ? "item" : "itens"} · {totalGeral} un
+            {list.length} {list.length === 1 ? "item" : "itens"} · {totalGeral} un
           </span>
         </div>
 
-        {itens.length === 0 ? (
+        {list.length === 0 ? (
           <div className="flex flex-col items-center justify-center gap-3 rounded-lg border border-dashed py-14 text-center">
             <PackageSearch className="h-10 w-10 text-muted-foreground" />
             <div>
@@ -200,26 +245,62 @@ export function EsperaManager({ itens }: { itens: EsperaItem[] }) {
           </div>
         ) : (
           <ul className="divide-y rounded-lg border bg-card">
-            {itens.map((item) => (
-              <li key={item.id}>
+            {list.map((item) => (
+              <li key={item.id} className="flex items-center gap-2 px-3 py-2.5 sm:gap-3 sm:px-4">
                 <button
                   type="button"
                   onClick={() => setBusca(item.codigoInterno)}
-                  className="flex w-full items-center gap-3 px-4 py-3 text-left transition-colors hover:bg-muted/50"
+                  className="flex min-w-0 flex-1 items-center gap-3 rounded-md py-1 text-left transition-colors hover:opacity-80"
+                  aria-label={`Ver detalhes do código ${item.codigoInterno}`}
                 >
                   <span className="font-mono text-sm font-semibold text-foreground">{item.codigoInterno}</span>
-                  <span className="min-w-0 flex-1 truncate text-sm text-muted-foreground">
+                  <span className="hidden min-w-0 flex-1 truncate text-sm text-muted-foreground sm:block">
                     {item.descricao ?? "Sem descrição"}
                   </span>
-                  <span className="flex items-center gap-1 text-xs text-muted-foreground">
+                  <span className="hidden items-center gap-1 text-xs text-muted-foreground md:flex">
                     <MapPin className="h-3.5 w-3.5" />
                     {item.boxPrimario}
                     {item.boxSecundario ? ` · ${item.boxSecundario}` : ""}
                   </span>
-                  <span className="w-20 shrink-0 text-right text-sm font-semibold tabular-nums text-foreground">
-                    {item.totalUnidades} un
-                  </span>
                 </button>
+
+                {/* Stepper instantâneo de 1 unidade */}
+                <div className="flex shrink-0 items-center gap-1.5">
+                  <Button
+                    type="button"
+                    size="icon"
+                    variant="outline"
+                    className="h-8 w-8 rounded-full text-destructive hover:bg-destructive/10 hover:text-destructive"
+                    onClick={() => ajustar(item, -1)}
+                    disabled={item.totalUnidades <= 0}
+                    aria-label={`Remover 1 unidade de ${item.codigoInterno}`}
+                  >
+                    <Minus className="h-4 w-4" />
+                  </Button>
+                  <span className="w-16 text-center text-sm font-semibold tabular-nums text-foreground">
+                    {item.totalUnidades}
+                    <span className="ml-0.5 text-xs font-normal text-muted-foreground">un</span>
+                  </span>
+                  <Button
+                    type="button"
+                    size="icon"
+                    className="h-8 w-8 rounded-full bg-emerald-600 text-white hover:bg-emerald-700"
+                    onClick={() => ajustar(item, 1)}
+                    aria-label={`Adicionar 1 unidade a ${item.codigoInterno}`}
+                  >
+                    <Plus className="h-4 w-4" />
+                  </Button>
+                  <Button
+                    type="button"
+                    size="icon"
+                    variant="ghost"
+                    className="h-8 w-8 text-muted-foreground hover:text-foreground"
+                    onClick={() => setEditarAlvo(item)}
+                    aria-label={`Editar ${item.codigoInterno}`}
+                  >
+                    <Pencil className="h-4 w-4" />
+                  </Button>
+                </div>
               </li>
             ))}
           </ul>
@@ -239,18 +320,30 @@ export function EsperaManager({ itens }: { itens: EsperaItem[] }) {
         pending={pending}
         startTransition={startTransition}
       />
+      <EditarDialog
+        item={editarAlvo}
+        onOpenChange={(o) => !o && setEditarAlvo(null)}
+        pending={pending}
+        startTransition={startTransition}
+      />
     </div>
   )
 }
 
 function ResultadoCard({
   item,
+  ajustando,
+  onQuick,
   onAdicionar,
   onRemover,
+  onEditar,
 }: {
   item: EsperaItem
+  ajustando: boolean
+  onQuick: (delta: 1 | -1) => void
   onAdicionar: () => void
   onRemover: () => void
+  onEditar: () => void
 }) {
   const r = resumoEmbalagem(item)
   const tipo = item.tipo as EsperaTipo
@@ -273,24 +366,47 @@ function ResultadoCard({
         </Badge>
       </div>
 
-      {/* Quantidade */}
-      <div>
-        <div className="flex items-baseline gap-2">
-          <span className="text-3xl font-bold tabular-nums text-foreground">{item.totalUnidades}</span>
-          <span className="text-base text-muted-foreground">unidades</span>
+      {/* Stepper instantâneo: cada clique muda 1 unidade */}
+      <div className="flex items-center justify-between gap-3 rounded-xl border bg-muted/30 p-3">
+        <Button
+          size="icon"
+          variant="outline"
+          className="h-14 w-14 rounded-full text-destructive hover:bg-destructive/10 hover:text-destructive"
+          onClick={() => onQuick(-1)}
+          disabled={item.totalUnidades <= 0}
+          aria-label="Remover 1 unidade"
+        >
+          <Minus className="h-6 w-6" />
+        </Button>
+
+        <div className="flex flex-col items-center">
+          <span className="flex items-center gap-2 text-4xl font-bold tabular-nums text-foreground">
+            {ajustando && <Loader2 className="h-5 w-5 animate-spin text-muted-foreground" />}
+            {item.totalUnidades}
+          </span>
+          <span className="text-sm text-muted-foreground">unidades</span>
+          {isEmbalagem && (
+            <span className="mt-0.5 text-xs text-muted-foreground">
+              {r.embalagens}{" "}
+              {r.embalagens === 1
+                ? ESPERA_TIPO_LABELS[tipo].toLowerCase()
+                : `${ESPERA_TIPO_LABELS[tipo].toLowerCase()}s`}{" "}
+              de {item.unidadesPorEmbalagem} un
+              {r.ultimaParcial && (
+                <span className="text-amber-600 dark:text-amber-500"> · última parcial ({r.soltasNaUltima} un)</span>
+              )}
+            </span>
+          )}
         </div>
-        {isEmbalagem && (
-          <p className="mt-1 text-sm text-muted-foreground">
-            {r.embalagens}{" "}
-            {r.embalagens === 1
-              ? ESPERA_TIPO_LABELS[tipo].toLowerCase()
-              : `${ESPERA_TIPO_LABELS[tipo].toLowerCase()}s`}{" "}
-            de {item.unidadesPorEmbalagem} un
-            {r.ultimaParcial && (
-              <span className="text-amber-600 dark:text-amber-500"> · última parcial ({r.soltasNaUltima} un)</span>
-            )}
-          </p>
-        )}
+
+        <Button
+          size="icon"
+          className="h-14 w-14 rounded-full bg-emerald-600 text-white hover:bg-emerald-700"
+          onClick={() => onQuick(1)}
+          aria-label="Adicionar 1 unidade"
+        >
+          <Plus className="h-6 w-6" />
+        </Button>
       </div>
 
       {/* Localização */}
@@ -305,19 +421,27 @@ function ResultadoCard({
         )}
       </div>
 
-      {/* Ações: verde adiciona, vermelho remove */}
-      <div className="flex items-center gap-3 pt-1">
+      {/* Ações em lote + edição */}
+      <div className="flex flex-col gap-2 pt-1 sm:flex-row sm:items-center">
         <Button
-          size="lg"
-          className="flex-1 bg-emerald-600 text-white hover:bg-emerald-700"
+          variant="outline"
+          className="flex-1 text-emerald-700 hover:bg-emerald-50 hover:text-emerald-800 dark:text-emerald-500 dark:hover:bg-emerald-950/40"
           onClick={onAdicionar}
         >
-          <Plus className="mr-1.5 h-5 w-5" />
-          Adicionar
+          <Plus className="mr-1.5 h-4 w-4" />
+          Adicionar vários
         </Button>
-        <Button size="lg" variant="destructive" className="flex-1" onClick={onRemover}>
-          <Minus className="mr-1.5 h-5 w-5" />
-          Remover
+        <Button
+          variant="outline"
+          className="flex-1 text-destructive hover:bg-destructive/10 hover:text-destructive"
+          onClick={onRemover}
+        >
+          <Minus className="mr-1.5 h-4 w-4" />
+          Remover vários
+        </Button>
+        <Button variant="ghost" className="sm:w-auto" onClick={onEditar}>
+          <Pencil className="mr-1.5 h-4 w-4" />
+          Editar
         </Button>
       </div>
     </div>
@@ -645,6 +769,173 @@ function RemoverDialog({
           <Button variant="destructive" onClick={submit} disabled={pending || invalido}>
             {pending && <Loader2 className="mr-1.5 h-4 w-4 animate-spin" />}
             Remover
+          </Button>
+        </DialogFooter>
+      </DialogContent>
+    </Dialog>
+  )
+}
+
+// Edição completa do item. Todos os campos são editáveis, mas a gravação só
+// acontece após o usuário confirmar com a própria senha (mesma do login).
+function EditarDialog({
+  item,
+  onOpenChange,
+  pending,
+  startTransition,
+}: {
+  item: EsperaItem | null
+  onOpenChange: (o: boolean) => void
+  pending: boolean
+  startTransition: (cb: () => void) => void
+}) {
+  const [codigo, setCodigo] = useState("")
+  const [boxPrimario, setBoxPrimario] = useState("")
+  const [boxSecundario, setBoxSecundario] = useState("")
+  const [tipo, setTipo] = useState<EsperaTipo>("unidade")
+  const [upe, setUpe] = useState("")
+  const [total, setTotal] = useState("")
+  const [senha, setSenha] = useState("")
+
+  // Preenche os campos ao abrir com um item.
+  useEffect(() => {
+    if (item) {
+      setCodigo(item.codigoInterno)
+      setBoxPrimario(item.boxPrimario)
+      setBoxSecundario(item.boxSecundario ?? "")
+      setTipo(item.tipo as EsperaTipo)
+      setUpe(String(item.unidadesPorEmbalagem ?? 1))
+      setTotal(String(item.totalUnidades))
+      setSenha("")
+    }
+  }, [item])
+
+  const isEmbalagem = tipo !== "unidade"
+
+  function reset() {
+    setSenha("")
+  }
+
+  function submit() {
+    if (!item) return
+    startTransition(async () => {
+      const res = await editarEspera({
+        id: item.id,
+        senha,
+        codigoInterno: codigo,
+        boxPrimario,
+        boxSecundario: boxSecundario || undefined,
+        tipo,
+        unidadesPorEmbalagem: isEmbalagem ? Number(upe) : 1,
+        totalUnidades: Number(total),
+      })
+      if (res.ok) {
+        toast.success(`Item ${codigo.trim()} atualizado`)
+        reset()
+        onOpenChange(false)
+      } else {
+        toast.error(res.error)
+      }
+    })
+  }
+
+  return (
+    <Dialog open={!!item} onOpenChange={(o) => (o ? undefined : (reset(), onOpenChange(o)))}>
+      <DialogContent className="max-h-[90vh] overflow-y-auto sm:max-w-lg">
+        <DialogHeader>
+          <DialogTitle>Editar item da espera</DialogTitle>
+          <DialogDescription>
+            Altere os dados abaixo. Para salvar, confirme com a sua senha de acesso.
+          </DialogDescription>
+        </DialogHeader>
+
+        <div className="flex flex-col gap-4">
+          <div className="grid gap-2">
+            <Label htmlFor="edit-codigo">Código interno</Label>
+            <Input
+              id="edit-codigo"
+              value={codigo}
+              onChange={(e) => setCodigo(e.target.value)}
+              className="font-mono"
+            />
+          </div>
+
+          <div className="grid gap-4 sm:grid-cols-2">
+            <div className="grid gap-2">
+              <Label htmlFor="edit-box1">Box primário</Label>
+              <Input id="edit-box1" value={boxPrimario} onChange={(e) => setBoxPrimario(e.target.value)} />
+            </div>
+            <div className="grid gap-2">
+              <Label htmlFor="edit-box2">Box secundário (opcional)</Label>
+              <Input id="edit-box2" value={boxSecundario} onChange={(e) => setBoxSecundario(e.target.value)} />
+            </div>
+          </div>
+
+          <div className="grid gap-4 sm:grid-cols-2">
+            <div className="grid gap-2">
+              <Label>Guardado como</Label>
+              <Select value={tipo} onValueChange={(v) => setTipo(v as EsperaTipo)}>
+                <SelectTrigger>
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  {ESPERA_TIPOS.map((t) => (
+                    <SelectItem key={t} value={t}>
+                      {ESPERA_TIPO_LABELS[t]}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+            {isEmbalagem && (
+              <div className="grid gap-2">
+                <Label htmlFor="edit-upe">Unidades por {ESPERA_TIPO_LABELS[tipo].toLowerCase()}</Label>
+                <Input
+                  id="edit-upe"
+                  type="number"
+                  min={1}
+                  value={upe}
+                  onChange={(e) => setUpe(e.target.value)}
+                />
+              </div>
+            )}
+          </div>
+
+          <div className="grid gap-2">
+            <Label htmlFor="edit-total">Saldo total (unidades)</Label>
+            <Input
+              id="edit-total"
+              type="number"
+              min={0}
+              value={total}
+              onChange={(e) => setTotal(e.target.value)}
+            />
+            <p className="text-xs text-muted-foreground">Se definir como 0, o item sai da espera.</p>
+          </div>
+
+          <div className="grid gap-2 rounded-lg border border-amber-500/30 bg-amber-500/5 p-3">
+            <Label htmlFor="edit-senha" className="flex items-center gap-1.5">
+              <Lock className="h-4 w-4 text-amber-600 dark:text-amber-500" />
+              Confirme com sua senha
+            </Label>
+            <Input
+              id="edit-senha"
+              type="password"
+              value={senha}
+              onChange={(e) => setSenha(e.target.value)}
+              placeholder="Sua senha de acesso"
+              autoComplete="current-password"
+            />
+          </div>
+        </div>
+
+        <DialogFooter>
+          <Button variant="outline" onClick={() => onOpenChange(false)} disabled={pending}>
+            Cancelar
+          </Button>
+          <Button onClick={submit} disabled={pending || senha.trim().length < 1}>
+            {pending && <Loader2 className="mr-1.5 h-4 w-4 animate-spin" />}
+            Salvar alterações
           </Button>
         </DialogFooter>
       </DialogContent>
