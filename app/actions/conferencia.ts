@@ -4,6 +4,7 @@ import { db } from "@/lib/db"
 import { notas, itensNota, produtos, equivalenciaProdutos, historicoLeituras, historicoAprendizado, user } from "@/lib/db/schema"
 import { and, eq, or, sql } from "drizzle-orm"
 import { requirePermission } from "@/lib/guards"
+import { registrarLog } from "@/lib/logs"
 import { revalidatePath } from "next/cache"
 
 type ItemRow = typeof itensNota.$inferSelect
@@ -436,13 +437,24 @@ export async function adicionarCodigoItem(input: {
 }
 
 export async function finalizarConferencia(notaId: number) {
-  await requirePermission("conferir")
+  const actor = await requirePermission("conferir")
   const progress = await notaProgress(notaId)
   const status = progress.itensCompletos >= progress.totalItens ? "conferida" : "divergente"
   await db
     .update(notas)
     .set({ status, itensConferidos: progress.itensCompletos, conferidaEm: new Date(), updatedAt: new Date() })
     .where(eq(notas.id, notaId))
+
+  const [nota] = await db.select({ numero: notas.numero }).from(notas).where(eq(notas.id, notaId)).limit(1)
+  await registrarLog({
+    actor,
+    area: "conferencia",
+    acao: "conferiu",
+    detalhe: `Finalizou a conferência da NF-e ${nota?.numero ?? `#${notaId}`} como ${
+      status === "conferida" ? "CONFERIDA" : "DIVERGENTE"
+    } (${progress.itensCompletos}/${progress.totalItens} itens).`,
+  })
+
   revalidatePath(`/conferencia/${notaId}`)
   revalidatePath("/conferencia")
   return { ok: true as const, status }

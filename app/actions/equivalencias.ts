@@ -5,6 +5,7 @@ import { equivalenciaProdutos, produtos } from "@/lib/db/schema"
 import { count, desc, eq, ilike, or } from "drizzle-orm"
 import { revalidatePath } from "next/cache"
 import { requireActor, requirePermission } from "@/lib/guards"
+import { registrarLog } from "@/lib/logs"
 
 export type Equivalencia = {
   id: number
@@ -76,8 +77,19 @@ export async function listEquivalencias(params?: {
 
 export async function deleteEquivalencia(id: number): Promise<ActionResult> {
   try {
-    await requirePermission("gerenciar_cadastros")
+    const actor = await requirePermission("gerenciar_cadastros")
+    const [e] = await db
+      .select({ codigo: equivalenciaProdutos.codigoFornecedor })
+      .from(equivalenciaProdutos)
+      .where(eq(equivalenciaProdutos.id, id))
+      .limit(1)
     await db.delete(equivalenciaProdutos).where(eq(equivalenciaProdutos.id, id))
+    await registrarLog({
+      actor,
+      area: "equivalencias",
+      acao: "excluiu",
+      detalhe: `Excluiu a equivalência${e?.codigo ? ` do código ${e.codigo}` : ` #${id}`}.`,
+    })
     revalidatePath("/equivalencias")
     return { ok: true }
   } catch (e) {
@@ -135,6 +147,12 @@ export async function upsertEquivalencia(input: {
       descricaoFornecedor: clean(input.descricaoFornecedor),
       ean: clean(input.ean),
       createdBy: actor.id,
+    })
+    await registrarLog({
+      actor,
+      area: "equivalencias",
+      acao: "criou",
+      detalhe: `Criou equivalência${codigoFornecedor ? ` do código ${codigoFornecedor}` : ""} para o produto #${input.produtoId}.`,
     })
     revalidatePath("/equivalencias")
     return { ok: true }

@@ -5,6 +5,7 @@ import { produtos } from "@/lib/db/schema"
 import { and, desc, eq, ilike, or, sql, count } from "drizzle-orm"
 import { revalidatePath } from "next/cache"
 import { requireActor, requirePermission } from "@/lib/guards"
+import { registrarLog } from "@/lib/logs"
 
 export type Produto = typeof produtos.$inferSelect
 
@@ -100,6 +101,13 @@ export async function createProduto(input: ProdutoInput): Promise<ActionResult<{
       })
       .returning({ id: produtos.id })
 
+    await registrarLog({
+      actor,
+      area: "produtos",
+      acao: "criou",
+      detalhe: `Criou o produto ${codigoInterno} — ${descricao}.`,
+    })
+
     revalidatePath("/produtos")
     return { ok: true, data: { id: row.id } }
   } catch (e) {
@@ -109,7 +117,7 @@ export async function createProduto(input: ProdutoInput): Promise<ActionResult<{
 
 export async function updateProduto(id: number, input: ProdutoInput): Promise<ActionResult> {
   try {
-    await requirePermission("gerenciar_cadastros")
+    const actor = await requirePermission("gerenciar_cadastros")
     const codigoInterno = input.codigoInterno.trim()
     const descricao = input.descricao.trim()
     if (!codigoInterno || !descricao) {
@@ -144,6 +152,13 @@ export async function updateProduto(id: number, input: ProdutoInput): Promise<Ac
       })
       .where(eq(produtos.id, id))
 
+    await registrarLog({
+      actor,
+      area: "produtos",
+      acao: "editou",
+      detalhe: `Editou o produto ${codigoInterno} — ${descricao}.`,
+    })
+
     revalidatePath("/produtos")
     return { ok: true }
   } catch (e) {
@@ -153,8 +168,19 @@ export async function updateProduto(id: number, input: ProdutoInput): Promise<Ac
 
 export async function deleteProduto(id: number): Promise<ActionResult> {
   try {
-    await requirePermission("gerenciar_cadastros")
+    const actor = await requirePermission("gerenciar_cadastros")
+    const [p] = await db
+      .select({ codigo: produtos.codigoInterno, descricao: produtos.descricao })
+      .from(produtos)
+      .where(eq(produtos.id, id))
+      .limit(1)
     await db.delete(produtos).where(eq(produtos.id, id))
+    await registrarLog({
+      actor,
+      area: "produtos",
+      acao: "excluiu",
+      detalhe: `Excluiu o produto ${p?.codigo ?? `#${id}`}${p?.descricao ? ` — ${p.descricao}` : ""}.`,
+    })
     revalidatePath("/produtos")
     return { ok: true }
   } catch (e) {

@@ -4,8 +4,9 @@ import { db } from "@/lib/db"
 import { garantias } from "@/lib/db/schema"
 import { desc, eq } from "drizzle-orm"
 import { requirePermission } from "@/lib/guards"
+import { registrarLog } from "@/lib/logs"
 import { revalidatePath } from "next/cache"
-import { GARANTIA_STATUS, type GarantiaStatus, type Garantia, type NovaGarantiaInput } from "@/lib/garantias"
+import { GARANTIA_STATUS, GARANTIA_STATUS_LABELS, type GarantiaStatus, type Garantia, type NovaGarantiaInput } from "@/lib/garantias"
 
 type GarantiaResult = { ok: true; protocolo: string } | { ok: false; error: string }
 
@@ -63,6 +64,13 @@ export async function abrirGarantia(input: NovaGarantiaInput): Promise<GarantiaR
     const protocolo = `GAR-${String(inserida.id).padStart(6, "0")}`
     await db.update(garantias).set({ protocolo }).where(eq(garantias.id, inserida.id))
 
+    await registrarLog({
+      actor,
+      area: "garantias",
+      acao: "abriu",
+      detalhe: `Abriu a garantia ${protocolo} para ${clienteNome} (${produtoDescricao}).`,
+    })
+
     revalidatePath("/garantias")
     revalidatePath("/estoque/garantia")
     return { ok: true, protocolo }
@@ -93,9 +101,16 @@ export async function atualizarStatusGarantia(
   status: GarantiaStatus,
 ): Promise<{ ok: boolean; error?: string }> {
   try {
-    await requirePermission("gerenciar_garantia")
+    const actor = await requirePermission("gerenciar_garantia")
     if (!GARANTIA_STATUS.includes(status)) return { ok: false, error: "Status inválido." }
     await db.update(garantias).set({ status, updatedAt: new Date() }).where(eq(garantias.id, id))
+    const [g] = await db.select({ protocolo: garantias.protocolo }).from(garantias).where(eq(garantias.id, id)).limit(1)
+    await registrarLog({
+      actor,
+      area: "garantias",
+      acao: "status",
+      detalhe: `Alterou o status da garantia ${g?.protocolo ?? `#${id}`} para "${GARANTIA_STATUS_LABELS[status]}".`,
+    })
     revalidatePath("/estoque/garantia")
     return { ok: true }
   } catch (e) {
@@ -109,7 +124,7 @@ export async function atualizarAnaliseGarantia(
   input: { analiseTecnica?: string; resultado?: string | null; observacaoInterna?: string },
 ): Promise<{ ok: boolean; error?: string }> {
   try {
-    await requirePermission("gerenciar_garantia")
+    const actor = await requirePermission("gerenciar_garantia")
     const resultado = clean(input.resultado)
     if (resultado && resultado !== "aprovado" && resultado !== "reprovado") {
       return { ok: false, error: "Resultado inválido." }
@@ -123,6 +138,15 @@ export async function atualizarAnaliseGarantia(
         updatedAt: new Date(),
       })
       .where(eq(garantias.id, id))
+    const [g] = await db.select({ protocolo: garantias.protocolo }).from(garantias).where(eq(garantias.id, id)).limit(1)
+    await registrarLog({
+      actor,
+      area: "garantias",
+      acao: "analise",
+      detalhe: `Registrou análise na garantia ${g?.protocolo ?? `#${id}`}${
+        resultado ? ` — resultado: ${resultado.toUpperCase()}` : ""
+      }.`,
+    })
     revalidatePath("/estoque/garantia")
     return { ok: true }
   } catch (e) {

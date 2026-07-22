@@ -4,6 +4,7 @@ import { db } from "@/lib/db"
 import { notas, itensNota, fornecedores, user } from "@/lib/db/schema"
 import { and, desc, eq, ilike, or, sql } from "drizzle-orm"
 import { requirePermission, requireActor } from "@/lib/guards"
+import { registrarLog } from "@/lib/logs"
 import { parseNfeXml } from "@/lib/nfe/parse"
 import { matchProduct, type MatchCache } from "@/lib/matching/match"
 import { revalidatePath } from "next/cache"
@@ -132,6 +133,15 @@ export async function importNfeXml(xmlContent: string): Promise<ImportResult> {
     })
   }
 
+  await registrarLog({
+    actor,
+    area: "importacao",
+    acao: "importou",
+    detalhe: `Importou a NF-e ${header.numero ?? "s/nº"}${
+      header.fornecedorNome ? ` de ${header.fornecedorNome}` : ""
+    } (${items.length} ${items.length === 1 ? "item" : "itens"}, ${comMatch} com vínculo).`,
+  })
+
   revalidatePath("/importar")
   revalidatePath("/conferencia")
   return { ok: true, notaId: nota.id, totalItens: items.length, comMatch, pendentes: items.length - comMatch }
@@ -216,9 +226,16 @@ export async function getNota(id: number) {
 }
 
 export async function deleteNota(id: number) {
-  await requirePermission("gerenciar_notas")
+  const actor = await requirePermission("gerenciar_notas")
+  const [nota] = await db.select({ numero: notas.numero }).from(notas).where(eq(notas.id, id)).limit(1)
   await db.delete(itensNota).where(eq(itensNota.notaId, id))
   await db.delete(notas).where(eq(notas.id, id))
+  await registrarLog({
+    actor,
+    area: "importacao",
+    acao: "excluiu",
+    detalhe: `Excluiu a NF-e ${nota?.numero ?? `#${id}`} e seus itens.`,
+  })
   revalidatePath("/importar")
   return { ok: true }
 }

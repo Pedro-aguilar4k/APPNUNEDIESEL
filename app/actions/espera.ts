@@ -4,6 +4,7 @@ import { db } from "@/lib/db"
 import { esperaItens, produtos } from "@/lib/db/schema"
 import { asc, eq, ilike } from "drizzle-orm"
 import { requirePermission } from "@/lib/guards"
+import { registrarLog } from "@/lib/logs"
 import { revalidatePath } from "next/cache"
 import { isEsperaTipo, type AdicionarEsperaInput, type EsperaItem, type EsperaResult } from "@/lib/espera"
 
@@ -99,6 +100,15 @@ export async function adicionarEspera(input: AdicionarEsperaInput): Promise<Espe
       })
     }
 
+    await registrarLog({
+      actor,
+      area: "espera",
+      acao: "adicionou",
+      detalhe: `Adicionou ${unidadesParaAdicionar} un do código ${codigo} na espera (box ${boxPrimario}${
+        boxSecundario ? ` / ${boxSecundario}` : ""
+      }).`,
+    })
+
     revalidatePath("/estoque/espera")
     return { ok: true, codigo }
   } catch (e) {
@@ -116,7 +126,7 @@ export async function removerUnidadesEspera(
   unidades: number,
 ): Promise<{ ok: boolean; error?: string; zerado?: boolean }> {
   try {
-    await requirePermission("conferir")
+    const actor = await requirePermission("conferir")
     const qtd = Math.floor(unidades || 0)
     if (qtd < 1) return { ok: false, error: "Informe uma quantidade válida." }
 
@@ -130,6 +140,12 @@ export async function removerUnidadesEspera(
     if (novoTotal <= 0) {
       // Remoção do registro só acontece quando zera.
       await db.delete(esperaItens).where(eq(esperaItens.id, id))
+      await registrarLog({
+        actor,
+        area: "espera",
+        acao: "removeu",
+        detalhe: `Removeu ${qtd} un do código ${item.codigoInterno} na espera. Saldo zerado — item retirado da espera.`,
+      })
       revalidatePath("/estoque/espera")
       return { ok: true, zerado: true }
     }
@@ -138,6 +154,12 @@ export async function removerUnidadesEspera(
       .update(esperaItens)
       .set({ totalUnidades: novoTotal, updatedAt: new Date() })
       .where(eq(esperaItens.id, id))
+    await registrarLog({
+      actor,
+      area: "espera",
+      acao: "removeu",
+      detalhe: `Removeu ${qtd} un do código ${item.codigoInterno} na espera (saldo: ${novoTotal} un).`,
+    })
     revalidatePath("/estoque/espera")
     return { ok: true, zerado: false }
   } catch (e) {

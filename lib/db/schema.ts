@@ -362,3 +362,22 @@ export const preferenciasUsuario = pgTable("preferencias_usuario", {
   notifResumoDiario: boolean("notif_resumo_diario").notNull().default(false),
   updatedAt: timestamp("updated_at").notNull().defaultNow(),
 })
+
+// Log de auditoria: uma linha por acao relevante em qualquer aba. Simples e
+// legivel ("quem fez o que, onde e quando") para rastrear responsaveis.
+export const logs = pgTable(
+  "logs",
+  {
+    id: serial("id").primaryKey(),
+    actorId: text("actor_id"), // id do usuario (pode ser null se sistema)
+    actorNome: text("actor_nome"), // nome no momento da acao (nao quebra se o user mudar/sair)
+    area: text("area").notNull(), // importacao | conferencia | espera | garantias | produtos | fornecedores | equivalencias | usuarios
+    acao: text("acao").notNull(), // criou | editou | excluiu | importou | conferiu | adicionou | removeu | abriu | status | analise | acesso
+    detalhe: text("detalhe").notNull(), // mensagem legivel do que aconteceu
+    createdAt: timestamp("created_at").notNull().defaultNow(),
+  },
+  (t) => ({
+    areaIdx: index("logs_area_idx").on(t.area),
+    createdIdx: index("logs_created_idx").on(t.createdAt),
+  }),
+)

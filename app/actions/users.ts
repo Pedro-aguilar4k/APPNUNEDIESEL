@@ -6,7 +6,13 @@ import { user } from "@/lib/db/schema"
 import { headers } from "next/headers"
 import { revalidatePath } from "next/cache"
 import { desc, eq } from "drizzle-orm"
-import { isValidRole, type Role } from "@/lib/permissions"
+import { isValidRole, ROLE_LABELS, type Role } from "@/lib/permissions"
+import { registrarLog } from "@/lib/logs"
+
+// Extrai um "actor" simplificado da sessão admin para o log de auditoria.
+function actorFrom(session: { user: { id: string; name?: string | null } }) {
+  return { id: session.user.id, name: session.user.name ?? "Administrador" }
+}
 
 async function requireAdmin() {
   const session = await auth.api.getSession({ headers: await headers() })
@@ -49,7 +55,7 @@ export async function createUser(input: {
   role: Role
 }): Promise<ActionResult> {
   try {
-    await requireAdmin()
+    const session = await requireAdmin()
     const username = input.username.trim().toLowerCase()
     const name = input.name.trim()
 
@@ -72,6 +78,13 @@ export async function createUser(input: {
       },
     })
 
+    await registrarLog({
+      actor: actorFrom(session),
+      area: "usuarios",
+      acao: "criou",
+      detalhe: `Criou o usuário "${name}" (@${username}) como ${ROLE_LABELS[input.role]}.`,
+    })
+
     revalidatePath("/usuarios")
     return { ok: true }
   } catch (e) {
@@ -92,6 +105,13 @@ export async function updateUserRole(userId: string, role: Role): Promise<Action
       // Better Auth tipa role como "user" | "admin", mas aceita papéis custom em runtime.
       body: { userId, role: role as "user" | "admin" },
     })
+    const [alvo] = await db.select({ name: user.name }).from(user).where(eq(user.id, userId)).limit(1)
+    await registrarLog({
+      actor: actorFrom(session),
+      area: "usuarios",
+      acao: "editou",
+      detalhe: `Alterou o papel de "${alvo?.name ?? userId}" para ${ROLE_LABELS[role]}.`,
+    })
     revalidatePath("/usuarios")
     return { ok: true }
   } catch (e) {
@@ -110,6 +130,13 @@ export async function setUserBanned(userId: string, banned: boolean): Promise<Ac
     } else {
       await auth.api.unbanUser({ headers: await headers(), body: { userId } })
     }
+    const [alvo] = await db.select({ name: user.name }).from(user).where(eq(user.id, userId)).limit(1)
+    await registrarLog({
+      actor: actorFrom(session),
+      area: "usuarios",
+      acao: "acesso",
+      detalhe: `${banned ? "Bloqueou" : "Desbloqueou"} o acesso de "${alvo?.name ?? userId}".`,
+    })
     revalidatePath("/usuarios")
     return { ok: true }
   } catch (e) {
@@ -119,11 +146,18 @@ export async function setUserBanned(userId: string, banned: boolean): Promise<Ac
 
 export async function resetUserPassword(userId: string, newPassword: string): Promise<ActionResult> {
   try {
-    await requireAdmin()
+    const session = await requireAdmin()
     if (newPassword.length < 8) return { ok: false, error: "A senha deve ter ao menos 8 caracteres." }
     await auth.api.setUserPassword({
       headers: await headers(),
       body: { userId, newPassword },
+    })
+    const [alvo] = await db.select({ name: user.name }).from(user).where(eq(user.id, userId)).limit(1)
+    await registrarLog({
+      actor: actorFrom(session),
+      area: "usuarios",
+      acao: "editou",
+      detalhe: `Redefiniu a senha de "${alvo?.name ?? userId}".`,
     })
     return { ok: true }
   } catch (e) {
@@ -137,7 +171,14 @@ export async function deleteUser(userId: string): Promise<ActionResult> {
     if (userId === session.user.id) {
       return { ok: false, error: "Você não pode remover a si mesmo." }
     }
+    const [alvo] = await db.select({ name: user.name }).from(user).where(eq(user.id, userId)).limit(1)
     await auth.api.removeUser({ headers: await headers(), body: { userId } })
+    await registrarLog({
+      actor: actorFrom(session),
+      area: "usuarios",
+      acao: "excluiu",
+      detalhe: `Removeu o usuário "${alvo?.name ?? userId}".`,
+    })
     revalidatePath("/usuarios")
     return { ok: true }
   } catch (e) {

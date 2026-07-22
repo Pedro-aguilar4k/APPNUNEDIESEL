@@ -5,6 +5,7 @@ import { fornecedores } from "@/lib/db/schema"
 import { and, count, desc, eq, ilike, or, sql } from "drizzle-orm"
 import { revalidatePath } from "next/cache"
 import { requireActor, requirePermission } from "@/lib/guards"
+import { registrarLog } from "@/lib/logs"
 
 export type Fornecedor = typeof fornecedores.$inferSelect
 
@@ -89,6 +90,13 @@ export async function createFornecedor(input: FornecedorInput): Promise<ActionRe
       })
       .returning({ id: fornecedores.id })
 
+    await registrarLog({
+      actor,
+      area: "fornecedores",
+      acao: "criou",
+      detalhe: `Criou o fornecedor ${razaoSocial}${cnpj ? ` (CNPJ ${cnpj})` : ""}.`,
+    })
+
     revalidatePath("/fornecedores")
     return { ok: true, data: { id: row.id } }
   } catch (e) {
@@ -98,7 +106,7 @@ export async function createFornecedor(input: FornecedorInput): Promise<ActionRe
 
 export async function updateFornecedor(id: number, input: FornecedorInput): Promise<ActionResult> {
   try {
-    await requirePermission("gerenciar_cadastros")
+    const actor = await requirePermission("gerenciar_cadastros")
     const razaoSocial = input.razaoSocial.trim()
     if (!razaoSocial) return { ok: false, error: "A razão social é obrigatória." }
 
@@ -125,6 +133,13 @@ export async function updateFornecedor(id: number, input: FornecedorInput): Prom
       })
       .where(eq(fornecedores.id, id))
 
+    await registrarLog({
+      actor,
+      area: "fornecedores",
+      acao: "editou",
+      detalhe: `Editou o fornecedor ${razaoSocial}${cnpj ? ` (CNPJ ${cnpj})` : ""}.`,
+    })
+
     revalidatePath("/fornecedores")
     return { ok: true }
   } catch (e) {
@@ -134,8 +149,19 @@ export async function updateFornecedor(id: number, input: FornecedorInput): Prom
 
 export async function deleteFornecedor(id: number): Promise<ActionResult> {
   try {
-    await requirePermission("gerenciar_cadastros")
+    const actor = await requirePermission("gerenciar_cadastros")
+    const [f] = await db
+      .select({ razaoSocial: fornecedores.razaoSocial })
+      .from(fornecedores)
+      .where(eq(fornecedores.id, id))
+      .limit(1)
     await db.delete(fornecedores).where(eq(fornecedores.id, id))
+    await registrarLog({
+      actor,
+      area: "fornecedores",
+      acao: "excluiu",
+      detalhe: `Excluiu o fornecedor ${f?.razaoSocial ?? `#${id}`}.`,
+    })
     revalidatePath("/fornecedores")
     return { ok: true }
   } catch (e) {

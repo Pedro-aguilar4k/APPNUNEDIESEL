@@ -13,6 +13,7 @@ import {
   ShieldCheck,
   ShieldPlus,
   PackageSearch,
+  ScrollText,
   type LucideIcon,
 } from "lucide-react"
 
@@ -42,6 +43,7 @@ export const NAV_ITEMS: NavItem[] = [
   { href: "/fornecedores", label: "Fornecedores", icon: Building2, permission: "gerenciar_cadastros", group: "cadastros", category: "registry" },
   { href: "/equivalencias", label: "Equivalências", icon: Link2, permission: "gerenciar_cadastros", group: "cadastros", category: "registry" },
   { href: "/relatorios", label: "Relatórios", icon: BarChart3, permission: "relatorios", group: "gestao", category: "intelligence" },
+  { href: "/logs", label: "Logs", icon: ScrollText, permission: "ver_logs", group: "gestao", category: "admin" },
   { href: "/usuarios", label: "Usuários", icon: Users, permission: "gerenciar_usuarios", group: "gestao", category: "admin" },
 ]
 

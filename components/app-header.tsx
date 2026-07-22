@@ -24,6 +24,7 @@ const ROUTE_TITLES: { match: RegExp; eyebrow: string; title: string }[] = [
   { match: /^\/fornecedores/, eyebrow: "Cadastros", title: "Fornecedores" },
   { match: /^\/equivalencias/, eyebrow: "Cadastros", title: "Equivalências" },
   { match: /^\/relatorios/, eyebrow: "Gestão", title: "Relatórios" },
+  { match: /^\/logs/, eyebrow: "Gestão", title: "Logs de auditoria" },
   { match: /^\/usuarios/, eyebrow: "Administração", title: "Usuários" },
   { match: /^\/configuracoes/, eyebrow: "Conta", title: "Configurações" },
 ]

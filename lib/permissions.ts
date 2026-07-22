@@ -21,6 +21,7 @@ export const PERMISSIONS = {
   gerenciar_usuarios: "gerenciar_usuarios",
   abrir_garantia: "abrir_garantia",
   gerenciar_garantia: "gerenciar_garantia",
+  ver_logs: "ver_logs",
 } as const
 
 export type Permission = (typeof PERMISSIONS)[keyof typeof PERMISSIONS]
@@ -37,6 +38,8 @@ const PERMISSION_ROLES: Record<Permission, Role[]> = {
   abrir_garantia: ["admin", "vendedor"],
   // A equipe interna acompanha e move os tickets no board.
   gerenciar_garantia: ["admin", "gerente", "comprador", "estoquista"],
+  // Log de auditoria: apenas administradores e gerentes.
+  ver_logs: ["admin", "gerente"],
 }
 
 export function roleHasPermission(role: string, permission: Permission): boolean {
