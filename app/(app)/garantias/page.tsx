@@ -2,7 +2,7 @@ import Link from "next/link"
 import { requireUser } from "@/lib/session"
 import { redirect } from "next/navigation"
 import { roleHasPermission } from "@/lib/permissions"
-import { listMinhasGarantias } from "@/app/actions/garantias"
+import { listMinhasGarantias, listMinhasRejeicoes } from "@/app/actions/garantias"
 import { PageHeader } from "@/components/page-header"
 import { MinhasGarantiasList } from "@/components/garantias/minhas-garantias-list"
 import { Button } from "@/components/ui/button"
@@ -12,7 +12,7 @@ export default async function MinhasGarantiasPage() {
   const user = await requireUser()
   if (!roleHasPermission(user.role, "abrir_garantia")) redirect("/")
 
-  const garantias = await listMinhasGarantias()
+  const [garantias, rejeicoes] = await Promise.all([listMinhasGarantias(), listMinhasRejeicoes()])
 
   return (
     <div className="flex flex-col gap-6">
@@ -28,7 +28,7 @@ export default async function MinhasGarantiasPage() {
           </Button>
         }
       />
-      <MinhasGarantiasList garantias={garantias} />
+      <MinhasGarantiasList garantias={garantias} rejeicoes={rejeicoes} />
     </div>
   )
 }

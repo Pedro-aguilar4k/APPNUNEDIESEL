@@ -1,12 +1,40 @@
 "use server"
 
 import { db } from "@/lib/db"
-import { esperaItens, produtos } from "@/lib/db/schema"
-import { asc, eq, ilike } from "drizzle-orm"
+import { account, esperaItens, produtos } from "@/lib/db/schema"
+import { and, asc, eq, ilike, ne } from "drizzle-orm"
 import { requirePermission } from "@/lib/guards"
+import { auth } from "@/lib/auth"
 import { registrarLog } from "@/lib/logs"
 import { revalidatePath } from "next/cache"
-import { isEsperaTipo, type AdicionarEsperaInput, type EsperaItem, type EsperaResult } from "@/lib/espera"
+import {
+  isEsperaTipo,
+  type AdicionarEsperaInput,
+  type EsperaItem,
+  type EsperaResult,
+  type EsperaTipo,
+} from "@/lib/espera"
+
+/**
+ * Verifica se a senha informada bate com a do usuário (conta de credenciais do
+ * Better Auth). Usada para confirmar ações sensíveis, como editar um item.
+ */
+async function conferirSenhaUsuario(userId: string, senha: string): Promise<boolean> {
+  const s = (senha ?? "").trim()
+  if (!s) return false
+  const [cred] = await db
+    .select({ password: account.password })
+    .from(account)
+    .where(and(eq(account.userId, userId), eq(account.providerId, "credential")))
+    .limit(1)
+  if (!cred?.password) return false
+  const ctx = await auth.$context
+  try {
+    return await ctx.password.verify({ hash: cred.password, password: s })
+  } catch {
+    return false
+  }
+}
 
 function clean(v?: string | null): string | null {
   const t = (v ?? "").trim()
@@ -164,5 +192,153 @@ export async function removerUnidadesEspera(
     return { ok: true, zerado: false }
   } catch (e) {
     return { ok: false, error: e instanceof Error ? e.message : "Erro ao remover unidades." }
+  }
+}
+
+/**
+ * Ajuste rápido de saldo (+1 / -1 unidade) para os botões instantâneos da tela.
+ * O total em unidades é a fonte da verdade; as caixas/pacotes se recalculam na
+ * exibição. Ao zerar, o item sai da espera. Retorna o novo total para a UI.
+ */
+export async function ajustarSaldoEspera(
+  id: number,
+  delta: number,
+): Promise<{ ok: boolean; error?: string; novoTotal?: number; zerado?: boolean }> {
+  try {
+    const actor = await requirePermission("conferir")
+    const passo = delta > 0 ? 1 : -1
+
+    const [item] = await db.select().from(esperaItens).where(eq(esperaItens.id, id)).limit(1)
+    if (!item) return { ok: false, error: "Item não encontrado." }
+
+    const novoTotal = item.totalUnidades + passo
+    if (novoTotal < 0) return { ok: false, error: "Saldo já está em zero." }
+
+    if (novoTotal === 0) {
+      await db.delete(esperaItens).where(eq(esperaItens.id, id))
+      await registrarLog({
+        actor,
+        area: "espera",
+        acao: "removeu",
+        detalhe: `Removeu 1 un do código ${item.codigoInterno} na espera. Saldo zerado — item retirado da espera.`,
+      })
+      revalidatePath("/estoque/espera")
+      return { ok: true, novoTotal: 0, zerado: true }
+    }
+
+    await db
+      .update(esperaItens)
+      .set({ totalUnidades: novoTotal, updatedAt: new Date() })
+      .where(eq(esperaItens.id, id))
+    await registrarLog({
+      actor,
+      area: "espera",
+      acao: passo > 0 ? "adicionou" : "removeu",
+      detalhe: `${passo > 0 ? "Adicionou" : "Removeu"} 1 un do código ${item.codigoInterno} na espera (saldo: ${novoTotal} un).`,
+    })
+    revalidatePath("/estoque/espera")
+    return { ok: true, novoTotal, zerado: false }
+  } catch (e) {
+    return { ok: false, error: e instanceof Error ? e.message : "Erro ao ajustar saldo." }
+  }
+}
+
+/** Entrada da edição completa de um item da espera. */
+export type EditarEsperaInput = {
+  id: number
+  senha: string
+  codigoInterno: string
+  boxPrimario: string
+  boxSecundario?: string
+  tipo: EsperaTipo
+  unidadesPorEmbalagem?: number
+  totalUnidades: number
+}
+
+/**
+ * Edita todos os campos de um item da espera. Exige a senha do próprio usuário
+ * como confirmação (não é uma senha compartilhada — é a mesma do login).
+ */
+export async function editarEspera(
+  input: EditarEsperaInput,
+): Promise<{ ok: boolean; error?: string }> {
+  try {
+    const actor = await requirePermission("conferir")
+
+    const senhaOk = await conferirSenhaUsuario(actor.id, input.senha)
+    if (!senhaOk) return { ok: false, error: "Senha incorreta. A edição não foi salva." }
+
+    const codigo = clean(input.codigoInterno)
+    const boxPrimario = clean(input.boxPrimario)
+    if (!codigo) return { ok: false, error: "Informe o código interno." }
+    if (!boxPrimario) return { ok: false, error: "Informe o box primário." }
+    if (!isEsperaTipo(input.tipo)) return { ok: false, error: "Tipo inválido." }
+
+    const upe = input.tipo === "unidade" ? 1 : Math.floor(input.unidadesPorEmbalagem || 0)
+    if (input.tipo !== "unidade" && upe < 1) {
+      return { ok: false, error: "Informe quantas unidades cabem em cada embalagem." }
+    }
+
+    const total = Math.floor(input.totalUnidades)
+    if (!Number.isFinite(total) || total < 0) {
+      return { ok: false, error: "Informe um saldo válido (0 ou mais)." }
+    }
+
+    const [item] = await db.select().from(esperaItens).where(eq(esperaItens.id, input.id)).limit(1)
+    if (!item) return { ok: false, error: "Item não encontrado." }
+
+    // Se o código mudou, garante que não colida com outro item já cadastrado.
+    if (codigo !== item.codigoInterno) {
+      const [conflito] = await db
+        .select({ id: esperaItens.id })
+        .from(esperaItens)
+        .where(and(eq(esperaItens.codigoInterno, codigo), ne(esperaItens.id, input.id)))
+        .limit(1)
+      if (conflito) {
+        return { ok: false, error: `Já existe outro item na espera com o código ${codigo}.` }
+      }
+    }
+
+    // Saldo zerado remove o item da espera.
+    if (total === 0) {
+      await db.delete(esperaItens).where(eq(esperaItens.id, input.id))
+      await registrarLog({
+        actor,
+        area: "espera",
+        acao: "editou",
+        detalhe: `Editou o código ${item.codigoInterno} e zerou o saldo — item retirado da espera.`,
+      })
+      revalidatePath("/estoque/espera")
+      return { ok: true }
+    }
+
+    const boxSecundario = clean(input.boxSecundario)
+    await db
+      .update(esperaItens)
+      .set({
+        codigoInterno: codigo,
+        descricao: codigo !== item.codigoInterno ? await descricaoDoCadastro(codigo) : item.descricao,
+        tipo: input.tipo,
+        unidadesPorEmbalagem: upe,
+        totalUnidades: total,
+        boxPrimario,
+        boxSecundario,
+        updatedAt: new Date(),
+      })
+      .where(eq(esperaItens.id, input.id))
+
+    await registrarLog({
+      actor,
+      area: "espera",
+      acao: "editou",
+      detalhe: `Editou o item ${codigo} na espera (saldo: ${total} un, box ${boxPrimario}${
+        boxSecundario ? ` / ${boxSecundario}` : ""
+      }).`,
+    })
+
+    revalidatePath("/estoque/espera")
+    return { ok: true }
+  } catch (e) {
+    return { ok: false, error: e instanceof Error ? e.message : "Erro ao editar item." }
   }
 }
