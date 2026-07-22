@@ -230,10 +230,13 @@ export function VinculacaoManager({
       const res = await salvarVinculacoes(nota.id, entradas)
       if (res.ok) {
         toast.success(
-          `Vinculação salva: ${res.vinculados} item(ns) vinculado(s)` +
-            (res.criados ? `, ${res.criados} produto(s) criado(s).` : "."),
+          `Vinculação concluída: ${res.vinculados} item(ns) vinculado(s)` +
+            (res.criados ? `, ${res.criados} produto(s) criado(s).` : ".") +
+            " A nota está pronta para conferência do estoquista.",
         )
-        router.push(`/estoque/conferencia/${nota.id}`)
+        // A conferência (bipagem) é feita pelo estoquista. Após vincular, o
+        // comprador volta para a lista de importação.
+        router.push("/importar")
       } else {
         toast.error(res.error)
       }

@@ -314,7 +314,7 @@ export function ConferenciaScanner({ initial, canBind }: { initial: ConferenciaD
           aria-live="polite"
         >
           {last && FbIcon ? (
-            <>
+            <div className="flex w-full flex-col items-center gap-3">
               <FbIcon className="h-10 w-10" />
               <p className="text-lg font-bold text-balance">{last.message}</p>
               {last.item?.devolucao && (
@@ -323,24 +323,39 @@ export function ConferenciaScanner({ initial, canBind }: { initial: ConferenciaD
                   Devolução
                 </span>
               )}
-              {last.item?.produtoDescricao && (
-                <p className="text-sm opacity-80 text-balance">{last.item.produtoDescricao}</p>
-              )}
               {last.item?.compradorNome && (
                 <p className="inline-flex items-center gap-1 text-sm font-medium">
                   <Truck className="h-4 w-4" />
                   Entregar para {last.item.compradorNome}
                 </p>
               )}
-              {last.scanned?.descricao && last.tipo === "produto_errado" && (
-                <p className="text-xs opacity-70">Bipado: {last.scanned.descricao}</p>
-              )}
+
+              {/* Ficha da peça bipada — dados completos, sem valores. */}
               {last.item && (
-                <p className="text-sm font-semibold tabular-nums">
-                  {last.item.quantidadeConferida} / {last.item.quantidade} {last.item.unidade ?? ""}
-                </p>
+                <div className="mt-1 w-full max-w-md rounded-lg border border-border bg-card p-4 text-left text-foreground">
+                  <p className="mb-3 text-base font-semibold leading-snug text-balance">
+                    {last.item.produtoDescricao ?? last.item.descricaoNfe ?? "Sem descrição"}
+                  </p>
+                  <dl className="grid grid-cols-2 gap-x-4 gap-y-2.5">
+                    <FichaCampo label="Código original" valor={last.item.cprod} mono />
+                    <FichaCampo label="Código interno" valor={last.item.produtoCodigo} mono />
+                    <FichaCampo label="EAN" valor={last.item.ean} mono />
+                    <div>
+                      <dt className="text-[11px] font-medium uppercase tracking-wide text-muted-foreground">
+                        Conferido
+                      </dt>
+                      <dd className="mt-0.5 text-sm font-bold tabular-nums text-foreground">
+                        {last.item.quantidadeConferida} / {last.item.quantidade} {last.item.unidade ?? ""}
+                      </dd>
+                    </div>
+                  </dl>
+                </div>
               )}
-            </>
+
+              {last.scanned?.descricao && last.tipo === "produto_errado" && (
+                <p className="text-xs opacity-70 text-balance">Você bipou: {last.scanned.descricao}</p>
+              )}
+            </div>
           ) : (
             <>
               <ScanLine className="h-10 w-10" />
@@ -528,5 +543,17 @@ function BipCodigoInline({ onSubmit }: { onSubmit: (value: string) => void }) {
         OK
       </Button>
     </form>
+  )
+}
+
+/** Campo da ficha da peça bipada (rótulo + valor). */
+function FichaCampo({ label, valor, mono }: { label: string; valor?: string | null; mono?: boolean }) {
+  return (
+    <div>
+      <dt className="text-[11px] font-medium uppercase tracking-wide text-muted-foreground">{label}</dt>
+      <dd className={`mt-0.5 truncate text-sm font-semibold text-foreground ${mono ? "font-mono" : ""}`}>
+        {valor?.trim() ? valor : "—"}
+      </dd>
+    </div>
   )
 }

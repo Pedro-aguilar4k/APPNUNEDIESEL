@@ -106,6 +106,29 @@ function buildRelatorioTxt(params: {
   return { txt: linhas.join("\n"), totalItens: itens.length, conferidos, divergentes, status }
 }
 
+// Dados estruturados salvos junto ao relatório para renderizar o PDF.
+export type RelatorioItemDados = {
+  codigoOriginal: string
+  codigoInterno: string
+  ean: string
+  descricao: string
+  quantidade: number
+  quantidadeConferida: number
+  unidade: string
+  ok: boolean
+}
+
+export type RelatorioDados = {
+  empresa: string
+  nota: { numero: string; serie: string; fornecedor: string; cnpj: string; emissao: string; chave: string }
+  estoquista: string
+  conferentePor: string
+  geradoEm: string
+  status: "conferida" | "divergente"
+  totais: { total: number; conferidos: number; divergentes: number }
+  itens: RelatorioItemDados[]
+}
+
 export type RelatorioResumo = {
   id: number
   notaId: number
@@ -152,6 +175,40 @@ export async function gerarRelatorioConferencia(input: {
     geradoEm,
   })
 
+  const dtBR = (d: Date | null | undefined) =>
+    d ? new Date(d).toLocaleString("pt-BR", { dateStyle: "short", timeStyle: "short" }) : "-"
+
+  const dados: RelatorioDados = {
+    empresa: "NUNEDIESEL · Autopeças Linha Pesada",
+    nota: {
+      numero: nota.numero ?? "-",
+      serie: nota.serie ?? "",
+      fornecedor: nota.fornecedorNome ?? "-",
+      cnpj: nota.fornecedorCnpj ?? "",
+      emissao: dtBR(nota.dataEmissao),
+      chave: nota.chaveAcesso ?? "",
+    },
+    estoquista: nome,
+    conferentePor: actor.name,
+    geradoEm: dtBR(geradoEm),
+    status: built.status as "conferida" | "divergente",
+    totais: { total: built.totalItens, conferidos: built.conferidos, divergentes: built.divergentes },
+    itens: itens.map(({ item, produtoCodigo, produtoDescricao }) => {
+      const q = qty(item.quantidade)
+      const qc = qty(item.quantidadeConferida)
+      return {
+        codigoOriginal: item.codigoFornecedor ?? "-",
+        codigoInterno: produtoCodigo ?? "-",
+        ean: item.ean ?? "-",
+        descricao: produtoDescricao ?? item.descricaoFornecedor ?? "-",
+        quantidade: q,
+        quantidadeConferida: qc,
+        unidade: item.unidade ?? "",
+        ok: qc >= q && q > 0,
+      }
+    }),
+  }
+
   const [row] = await db
     .insert(relatoriosConferencia)
     .values({
@@ -164,6 +221,7 @@ export async function gerarRelatorioConferencia(input: {
       itensConferidos: built.conferidos,
       itensDivergentes: built.divergentes,
       conteudoTxt: built.txt,
+      dadosJson: dados,
       createdBy: actor.id,
       createdByNome: actor.name,
       createdAt: geradoEm,

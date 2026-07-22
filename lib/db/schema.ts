@@ -264,6 +264,9 @@ export const relatoriosConferencia = pgTable(
     itensConferidos: integer("itens_conferidos").notNull().default(0),
     itensDivergentes: integer("itens_divergentes").notNull().default(0),
     conteudoTxt: text("conteudo_txt").notNull(),
+    // Dados estruturados (cabeçalho + itens) usados para renderizar o PDF
+    // "bonito". O TXT continua sendo o registro textual de auditoria.
+    dadosJson: jsonb("dados_json"),
     createdBy: text("created_by"),
     createdByNome: text("created_by_nome"),
     createdAt: timestamp("created_at").notNull().defaultNow(),
