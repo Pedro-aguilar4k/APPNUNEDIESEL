@@ -316,9 +316,10 @@ export const garantias = pgTable(
     prazoValidado: boolean("prazo_validado").notNull().default(false),
     // Etapa "Enviado": NFG + dados da transportadora
     nfgNumero: text("nfg_numero"), // nota fiscal de garantia
+    numeroOrcamento: text("numero_orcamento"),
     transportadoraNome: text("transportadora_nome"),
     dataEnvio: text("data_envio"),
-    freteConta: text("frete_conta"), // destinatario | remetente
+    freteConta: text("frete_conta"), // fornecedor | frete_pago | frete_cortesia | cliente
     envioCadastrado: boolean("envio_cadastrado").notNull().default(false),
     // Etapa "Esperando retorno": dados do retorno
     notaEntrada: text("nota_entrada"),

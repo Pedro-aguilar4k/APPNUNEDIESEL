@@ -19,11 +19,13 @@ export const GARANTIA_STATUS_LABELS: Record<GarantiaStatus, string> = {
 }
 
 // Quem paga o frete no envio da garantia.
-export const FRETE_CONTA = ["destinatario", "remetente"] as const
+export const FRETE_CONTA = ["fornecedor", "frete_pago", "frete_cortesia", "cliente"] as const
 export type FreteConta = (typeof FRETE_CONTA)[number]
 export const FRETE_CONTA_LABELS: Record<FreteConta, string> = {
-  destinatario: "Por conta do destinatário",
-  remetente: "Por conta do remetente",
+  fornecedor: "Fornecedor",
+  frete_pago: "Frete pago",
+  frete_cortesia: "Frete cortesia",
+  cliente: "Cliente",
 }
 
 // Resultado do retorno da garantia.
