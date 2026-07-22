@@ -28,7 +28,9 @@ export type Permission = (typeof PERMISSIONS)[keyof typeof PERMISSIONS]
 
 const PERMISSION_ROLES: Record<Permission, Role[]> = {
   view: ["admin", "gerente", "comprador", "estoquista"],
-  conferir: ["admin", "gerente", "comprador", "estoquista"],
+  // Conferência (bipagem) é exclusiva de estoquistas; admin e gerente mantêm
+  // acesso para supervisão. O comprador NÃO confere — apenas importa/vincula.
+  conferir: ["admin", "gerente", "estoquista"],
   gerenciar_notas: ["admin", "gerente", "comprador"],
   gerenciar_cadastros: ["admin", "gerente", "comprador"],
   relatorios: ["admin", "gerente"],
