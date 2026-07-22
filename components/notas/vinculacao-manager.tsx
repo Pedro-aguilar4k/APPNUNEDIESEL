@@ -330,7 +330,7 @@ function StepIndicator({ etapa }: { etapa: Etapa }) {
             : "bg-muted text-muted-foreground"
         }`}
       >
-        <CheckCircle2 className="h-3.5 w-3.5" /> 2. Conferência
+        <CheckCircle2 className="h-3.5 w-3.5" /> 2. Revisão
       </span>
     </div>
   )
@@ -456,13 +456,13 @@ function EtapaVincular({
       <div className="flex flex-col gap-6">
         <Card className="flex items-center gap-3 p-5 text-sm text-muted-foreground">
           <CheckCircle2 className="h-5 w-5 text-emerald-500" />
-          Todos os itens já foram reconhecidos automaticamente. Revise na conferência geral.
+          Todos os itens já foram reconhecidos automaticamente. Revise e salve para concluir.
         </Card>
         {jaVinculados.length > 0 && <ReconhecidosCard jaVinculados={jaVinculados} />}
         <div className="flex justify-end">
           <Button onClick={onAvancar} className="gap-1.5">
-            Conferência geral
-            <ArrowRight className="h-4 w-4" />
+        Revisar e salvar
+        <ArrowRight className="h-4 w-4" />
           </Button>
         </div>
       </div>
@@ -625,8 +625,8 @@ function EtapaVincular({
             </Button>
           )}
           <Button onClick={onAvancar} disabled={!todosOk} className="gap-1.5">
-            <CheckCircle2 className="h-4 w-4" />
-            Conferência geral
+        <CheckCircle2 className="h-4 w-4" />
+        Revisar e salvar
           </Button>
         </div>
       </div>
@@ -910,7 +910,7 @@ function EtapaConferencia({
       <Card>
         <div className="flex items-center gap-2 border-b border-border p-4">
           <CheckCircle2 className="h-4 w-4 text-accent-brand" />
-          <h2 className="text-base font-semibold text-foreground">Conferência geral</h2>
+          <h2 className="text-base font-semibold text-foreground">Revisão dos itens</h2>
           <span className="text-sm text-muted-foreground">
             Revise todos os itens e ajuste os códigos internos se necessário.
           </span>
@@ -1027,7 +1027,7 @@ function EtapaConferencia({
         )}
         <Button onClick={onSalvar} disabled={saving} className="gap-1.5">
           {saving ? <Loader2 className="h-4 w-4 animate-spin" /> : <CheckCircle2 className="h-4 w-4" />}
-          Salvar e ir para conferência
+          Salvar e voltar para importação
         </Button>
       </div>
     </div>
