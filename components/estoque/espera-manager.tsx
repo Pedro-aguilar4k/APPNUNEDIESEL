@@ -29,6 +29,7 @@ import { cn } from "@/lib/utils"
 
 export function EsperaManager({ itens }: { itens: EsperaItem[] }) {
   const [busca, setBusca] = useState("")
+  const [mostrarSimilares, setMostrarSimilares] = useState(false)
   const [addOpen, setAddOpen] = useState(false)
   const [addAlvo, setAddAlvo] = useState<EsperaItem | null>(null)
   const [removerAlvo, setRemoverAlvo] = useState<EsperaItem | null>(null)
@@ -36,11 +37,20 @@ export function EsperaManager({ itens }: { itens: EsperaItem[] }) {
 
   const termo = busca.trim().toLowerCase()
 
-  // Resultado(s) da busca: casa por código ou descrição.
-  const encontrados = useMemo(() => {
+  // Resultado principal: apenas o item com código EXATAMENTE igual ao pesquisado.
+  const encontrado = useMemo(() => {
+    if (!termo) return null
+    return itens.find((i) => i.codigoInterno.toLowerCase() === termo) ?? null
+  }, [termo, itens])
+
+  // Similares: códigos parecidos (contêm o termo) ou descrição relacionada,
+  // excluindo o resultado exato. Só aparecem ao clicar em "Buscar similares".
+  const similares = useMemo(() => {
     if (!termo) return []
     return itens.filter(
-      (i) => i.codigoInterno.toLowerCase().includes(termo) || (i.descricao ?? "").toLowerCase().includes(termo),
+      (i) =>
+        i.codigoInterno.toLowerCase() !== termo &&
+        (i.codigoInterno.toLowerCase().includes(termo) || (i.descricao ?? "").toLowerCase().includes(termo)),
     )
   }, [termo, itens])
 
@@ -110,7 +120,10 @@ export function EsperaManager({ itens }: { itens: EsperaItem[] }) {
             <Search className="pointer-events-none absolute left-4 top-1/2 h-5 w-5 -translate-y-1/2 text-muted-foreground" />
             <Input
               value={busca}
-              onChange={(e) => setBusca(e.target.value)}
+              onChange={(e) => {
+                setBusca(e.target.value)
+                setMostrarSimilares(false)
+              }}
               placeholder="Digite o código do item..."
               className="h-14 pl-12 text-lg font-mono"
               aria-label="Pesquisar item na espera"
@@ -123,23 +136,47 @@ export function EsperaManager({ itens }: { itens: EsperaItem[] }) {
           </Button>
         </form>
 
-        {/* Resultado da busca */}
-        {termo && encontrados.length === 0 && (
+        {/* Resultado exato */}
+        {termo && encontrado && (
+          <ResultadoCard
+            item={encontrado}
+            onAdicionar={() => setAddAlvo(encontrado)}
+            onRemover={() => setRemoverAlvo(encontrado)}
+          />
+        )}
+
+        {/* Nenhum código exato encontrado */}
+        {termo && !encontrado && (
           <div className="flex items-center gap-3 rounded-xl border border-destructive/30 bg-destructive/5 px-4 py-4 text-destructive">
             <TriangleAlert className="h-5 w-5 shrink-0" />
             <p className="font-medium">Produto não localizado</p>
           </div>
         )}
 
-        {termo &&
-          encontrados.map((item) => (
-            <ResultadoCard
-              key={item.id}
-              item={item}
-              onAdicionar={() => setAddAlvo(item)}
-              onRemover={() => setRemoverAlvo(item)}
-            />
-          ))}
+        {/* Botão para revelar códigos parecidos */}
+        {termo && !mostrarSimilares && similares.length > 0 && (
+          <Button variant="outline" onClick={() => setMostrarSimilares(true)}>
+            <Search className="mr-1.5 h-4 w-4" />
+            Buscar similares ({similares.length})
+          </Button>
+        )}
+
+        {/* Lista de similares */}
+        {termo && mostrarSimilares && (
+          <div className="flex flex-col gap-3">
+            <p className="px-1 text-sm font-medium text-muted-foreground">
+              {similares.length} código{similares.length === 1 ? "" : "s"} parecido{similares.length === 1 ? "" : "s"}
+            </p>
+            {similares.map((item) => (
+              <ResultadoCard
+                key={item.id}
+                item={item}
+                onAdicionar={() => setAddAlvo(item)}
+                onRemover={() => setRemoverAlvo(item)}
+              />
+            ))}
+          </div>
+        )}
       </div>
 
       {/* Lista simples de todos os itens cadastrados */}
