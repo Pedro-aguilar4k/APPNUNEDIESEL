@@ -14,8 +14,15 @@ function getConnectionConfig() {
   // (SSL modes 'prefer'/'require'/'verify-ca' tratados como 'verify-full')
   // mantendo o mesmo comportamento seguro de verificação completa do certificado.
   let host = ""
+  let cleanConnectionString = connectionString
   try {
-    host = new URL(connectionString).hostname
+    const url = new URL(connectionString)
+    host = url.hostname
+    // Remove o `sslmode` da URL para o driver `pg` não emitir o warning de
+    // depreciação ao interpretá-lo. O SSL passa a ser controlado pela opção
+    // `ssl` abaixo.
+    url.searchParams.delete("sslmode")
+    cleanConnectionString = url.toString()
   } catch {
     host = ""
   }
@@ -23,7 +30,7 @@ function getConnectionConfig() {
   const isLocal = host === "localhost" || host === "127.0.0.1"
 
   return {
-    connectionString,
+    connectionString: cleanConnectionString,
     // Em produção (ex.: Neon) mantém a verificação completa do certificado.
     // Em conexões locais o SSL fica desativado.
     ssl: isLocal ? false : { rejectUnauthorized: true },
