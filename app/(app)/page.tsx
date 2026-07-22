@@ -34,6 +34,14 @@ function fmtBRL(v: number) {
   return v.toLocaleString("pt-BR", { style: "currency", currency: "BRL", maximumFractionDigits: 0 })
 }
 
+function fmtBRLExato(v: number) {
+  return v.toLocaleString("pt-BR", { style: "currency", currency: "BRL", minimumFractionDigits: 2 })
+}
+
+function fmtData(d: Date | string) {
+  return new Date(d).toLocaleDateString("pt-BR", { day: "2-digit", month: "2-digit", year: "2-digit" })
+}
+
 const GARANTIA_LABELS: Record<string, string> = {
   pendente: "Triagem",
   em_analise: "Em análise",
@@ -182,59 +190,74 @@ export default async function DashboardPage() {
 
       {/* Tabelas */}
       <section className="grid gap-6 lg:grid-cols-2">
-        <Card>
-          <CardHeader className="flex flex-row items-center justify-between gap-2">
+        <Card className="overflow-hidden">
+          <CardHeader className="flex flex-row items-center justify-between gap-2 border-b border-border">
             <div>
               <CardTitle className="text-base">Últimas notas</CardTitle>
-              <CardDescription>Notas importadas recentemente</CardDescription>
+              <CardDescription>Valores importados recentemente</CardDescription>
             </div>
             <Link
               href="/estoque/conferencia"
               className="inline-flex shrink-0 items-center gap-1 text-sm font-medium text-primary hover:underline"
             >
-              Ver conferência <ArrowRight className="h-4 w-4" aria-hidden="true" />
+              Ver tudo <ArrowRight className="h-4 w-4" aria-hidden="true" />
             </Link>
           </CardHeader>
-          <CardContent>
+          <CardContent className="p-0">
             {m.ultimasNotas.length === 0 ? (
-              <p className="py-8 text-center text-sm text-muted-foreground">
+              <p className="py-12 text-center text-sm text-muted-foreground">
                 Nenhuma nota importada. Comece pela tela de importação de NF-e.
               </p>
             ) : (
               <div className="overflow-x-auto">
                 <table className="w-full text-sm">
                   <thead>
-                    <tr className="border-b border-border text-left text-xs uppercase text-muted-foreground">
-                      <th className="pb-2 pr-4 font-medium">Nota</th>
-                      <th className="pb-2 pr-4 font-medium">Fornecedor</th>
-                      <th className="pb-2 pr-4 font-medium">Progresso</th>
-                      <th className="pb-2 font-medium">Status</th>
+                    <tr className="border-b border-border bg-muted/40 text-left text-xs uppercase tracking-wide text-muted-foreground">
+                      <th className="px-4 py-2.5 font-medium">Nota / Fornecedor</th>
+                      <th className="px-2 py-2.5 text-center font-medium">Itens</th>
+                      <th className="px-2 py-2.5 text-right font-medium">Valor</th>
+                      <th className="px-4 py-2.5 text-right font-medium">Status</th>
                     </tr>
                   </thead>
                   <tbody>
                     {m.ultimasNotas.map((n) => (
-                      <tr key={n.id} className="border-b border-border/60 last:border-0">
-                        <td className="py-3 pr-4 font-medium text-foreground">Nº {n.numero ?? "—"}</td>
-                        <td className="max-w-[180px] truncate py-3 pr-4 text-muted-foreground">
-                          {n.fornecedorNome ?? "—"}
+                      <tr key={n.id} className="border-b border-border/50 transition-colors last:border-0 hover:bg-muted/40">
+                        <td className="px-4 py-3">
+                          <span className="font-medium text-foreground">Nº {n.numero ?? "—"}</span>
+                          <span className="block max-w-[190px] truncate text-xs text-muted-foreground">
+                            {n.fornecedorNome ?? "Sem fornecedor"} · {fmtData(n.createdAt)}
+                          </span>
                         </td>
-                        <td className="py-3 pr-4 tabular-nums text-muted-foreground">
+                        <td className="px-2 py-3 text-center tabular-nums text-muted-foreground">
                           {n.itensConferidos ?? 0}/{n.totalItens ?? 0}
                         </td>
-                        <td className="py-3">
+                        <td className="px-2 py-3 text-right font-medium tabular-nums text-foreground">
+                          {fmtBRLExato(Number(n.valorTotal ?? 0))}
+                        </td>
+                        <td className="px-4 py-3 text-right">
                           <NotaStatusBadge status={n.status} />
                         </td>
                       </tr>
                     ))}
                   </tbody>
+                  <tfoot>
+                    <tr className="border-t border-border bg-muted/40">
+                      <td className="px-4 py-2.5 text-xs font-medium uppercase tracking-wide text-muted-foreground" colSpan={2}>
+                        Total exibido
+                      </td>
+                      <td className="px-2 py-2.5 text-right font-semibold tabular-nums text-foreground" colSpan={2}>
+                        {fmtBRLExato(m.ultimasNotas.reduce((acc, n) => acc + Number(n.valorTotal ?? 0), 0))}
+                      </td>
+                    </tr>
+                  </tfoot>
                 </table>
               </div>
             )}
           </CardContent>
         </Card>
 
-        <Card>
-          <CardHeader className="flex flex-row items-center justify-between gap-2">
+        <Card className="overflow-hidden">
+          <CardHeader className="flex flex-row items-center justify-between gap-2 border-b border-border">
             <div>
               <CardTitle className="text-base">Últimas garantias</CardTitle>
               <CardDescription>Solicitações abertas recentemente</CardDescription>
@@ -243,31 +266,34 @@ export default async function DashboardPage() {
               href="/estoque/garantia"
               className="inline-flex shrink-0 items-center gap-1 text-sm font-medium text-primary hover:underline"
             >
-              Ver garantias <ArrowRight className="h-4 w-4" aria-hidden="true" />
+              Ver tudo <ArrowRight className="h-4 w-4" aria-hidden="true" />
             </Link>
           </CardHeader>
-          <CardContent>
+          <CardContent className="p-0">
             {m.ultimasGarantias.length === 0 ? (
-              <p className="py-8 text-center text-sm text-muted-foreground">Nenhuma garantia aberta ainda.</p>
+              <p className="py-12 text-center text-sm text-muted-foreground">Nenhuma garantia aberta ainda.</p>
             ) : (
               <div className="overflow-x-auto">
                 <table className="w-full text-sm">
                   <thead>
-                    <tr className="border-b border-border text-left text-xs uppercase text-muted-foreground">
-                      <th className="pb-2 pr-4 font-medium">Protocolo</th>
-                      <th className="pb-2 pr-4 font-medium">Cliente</th>
-                      <th className="pb-2 font-medium">Etapa</th>
+                    <tr className="border-b border-border bg-muted/40 text-left text-xs uppercase tracking-wide text-muted-foreground">
+                      <th className="px-4 py-2.5 font-medium">Protocolo</th>
+                      <th className="px-4 py-2.5 font-medium">Cliente / Produto</th>
+                      <th className="px-4 py-2.5 text-right font-medium">Etapa</th>
                     </tr>
                   </thead>
                   <tbody>
                     {m.ultimasGarantias.map((g) => (
-                      <tr key={g.id} className="border-b border-border/60 last:border-0">
-                        <td className="py-3 pr-4 font-medium text-foreground">{g.protocolo}</td>
-                        <td className="max-w-[180px] truncate py-3 pr-4 text-muted-foreground">
-                          {g.clienteNome}
-                          <span className="block truncate text-xs text-muted-foreground/70">{g.produtoDescricao}</span>
+                      <tr key={g.id} className="border-b border-border/50 transition-colors last:border-0 hover:bg-muted/40">
+                        <td className="px-4 py-3">
+                          <span className="font-medium text-foreground">{g.protocolo}</span>
+                          <span className="block text-xs text-muted-foreground">{fmtData(g.createdAt)}</span>
                         </td>
-                        <td className="py-3">
+                        <td className="max-w-[190px] px-4 py-3">
+                          <span className="block truncate text-foreground">{g.clienteNome}</span>
+                          <span className="block truncate text-xs text-muted-foreground">{g.produtoDescricao}</span>
+                        </td>
+                        <td className="px-4 py-3 text-right">
                           <Badge className={`border ${GARANTIA_TONE[g.status] ?? GARANTIA_TONE.pendente} hover:bg-transparent`}>
                             {GARANTIA_LABELS[g.status] ?? g.status}
                           </Badge>

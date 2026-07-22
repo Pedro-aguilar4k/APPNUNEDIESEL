@@ -46,6 +46,7 @@ export type DashboardMetrics = {
     status: string
     totalItens: number | null
     itensConferidos: number | null
+    valorTotal: string | null
     createdAt: Date
   }[]
   ultimasGarantias: {
@@ -129,6 +130,7 @@ export async function getDashboardMetrics(): Promise<DashboardMetrics> {
         status: notas.status,
         totalItens: notas.totalItens,
         itensConferidos: notas.itensConferidos,
+        valorTotal: notas.valorTotal,
         createdAt: notas.createdAt,
       })
       .from(notas)
