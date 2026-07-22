@@ -1,0 +1,75 @@
+========================================================
+  VARIÁVEIS DE AMBIENTE - APP NUNE DIESEL
+========================================================
+
+Este arquivo é um MODELO. Ele NÃO contém os valores reais
+(por segurança, pois eles vão para o GitHub). Preencha os
+valores reais só no painel da nova conta v0 / Vercel.
+
+--------------------------------------------------------
+1) DATABASE_URL  (OBRIGATÓRIA)
+--------------------------------------------------------
+Formato:
+DATABASE_URL="postgresql://USUARIO:SENHA@HOST.neon.tech/NOME_DO_BANCO?sslmode=require"
+
+Exemplo do formato (valores fictícios):
+DATABASE_URL="postgresql://neondb_owner:npg_ab12CxYz@ep-cool-frost-12345678.us-east-2.aws.neon.tech/neondb?sslmode=require"
+
+Onde pegar o valor real:
+- Opção A (mais fácil): no v0 atual -> botão de configurações (canto
+  superior direito) -> aba "Vars". Copie o valor de DATABASE_URL.
+- Opção B: no painel da Neon (console.neon.tech) -> seu projeto ->
+  "Connection string" -> copie a URI completa (marque "pooled" se
+  disponível).
+
+--------------------------------------------------------
+2) BETTER_AUTH_URL  (RECOMENDADA)
+--------------------------------------------------------
+É a URL pública onde o app vai rodar. Serve para o login
+funcionar corretamente em produção.
+
+Em desenvolvimento (local / preview v0):
+BETTER_AUTH_URL="http://localhost:3000"
+
+Em produção (troque pelo domínio real do site):
+BETTER_AUTH_URL="https://SEU-DOMINIO.vercel.app"
+
+Ex.: BETTER_AUTH_URL="https://nfe-conferencia.vercel.app"
+Se você usar domínio próprio: BETTER_AUTH_URL="https://nunediesel.auto"
+
+--------------------------------------------------------
+3) BETTER_AUTH_SECRET  (RECOMENDADA)
+--------------------------------------------------------
+Chave secreta usada para assinar as sessões de login.
+Se não existir, gere uma nova (qualquer texto aleatório longo).
+
+Formato:
+BETTER_AUTH_SECRET="uma-string-aleatoria-bem-longa-e-secreta"
+
+Como gerar uma nova (terminal):
+openssl rand -base64 32
+
+Observação: se você trocar esse valor, todos os usuários logados
+precisarão fazer login de novo (as sessões antigas param de valer).
+A senha dos usuários NÃO é afetada.
+
+========================================================
+  RESUMO - o que colar na nova conta
+========================================================
+Vá em: configurações do projeto -> aba "Vars" e adicione:
+
+DATABASE_URL          -> (copiar do projeto atual / Neon)
+BETTER_AUTH_URL       -> (a URL do novo site)
+BETTER_AUTH_SECRET    -> (copiar do atual OU gerar uma nova)
+
+Só o DATABASE_URL é 100% obrigatório para o app subir.
+As outras duas garantem que o login funcione certo em produção.
+
+========================================================
+  IMPORTANTE
+========================================================
+- NUNCA coloque os valores reais dentro deste arquivo se ele
+  estiver indo para o GitHub. Mantenha só o modelo aqui.
+- O arquivo real de variáveis (.env.local) já é ignorado pelo
+  Git e não vai para o repositório.
+========================================================
