@@ -11,6 +11,8 @@ import {
   AlertTriangle,
   Link2,
   Loader2,
+  Maximize2,
+  Minimize2,
   PackageCheck,
   RotateCcw,
   Truck,
@@ -115,6 +117,8 @@ export function ConferenciaScanner({ initial, canBind }: { initial: ConferenciaD
   const [finalizado, setFinalizado] = useState(
     initial.nota.status === "conferida" || initial.nota.status === "divergente",
   )
+  // Modo conferência: visor em tela cheia para bipar sem distração.
+  const [modoConferencia, setModoConferencia] = useState(false)
   const inputRef = useRef<HTMLInputElement>(null)
 
   // Refs para acessar o estado mais recente dentro do loop da fila.
@@ -132,6 +136,34 @@ export function ConferenciaScanner({ initial, canBind }: { initial: ConferenciaD
   useEffect(() => {
     focusInput()
   }, [focusInput])
+
+  // Entra/sai do modo conferência usando a Fullscreen API do navegador quando
+  // disponível. Se o usuário sair com Esc, o estado acompanha.
+  const toggleModoConferencia = useCallback(() => {
+    setModoConferencia((prev) => {
+      const next = !prev
+      try {
+        if (next) void document.documentElement.requestFullscreen?.()
+        else if (document.fullscreenElement) void document.exitFullscreen()
+      } catch {
+        /* alguns navegadores bloqueiam fullscreen — o overlay já cobre a tela */
+      }
+      return next
+    })
+    setTimeout(() => inputRef.current?.focus(), 50)
+  }, [])
+
+  useEffect(() => {
+    const onFsChange = () => {
+      if (!document.fullscreenElement) setModoConferencia(false)
+    }
+    document.addEventListener("fullscreenchange", onFsChange)
+    return () => document.removeEventListener("fullscreenchange", onFsChange)
+  }, [])
+
+  useEffect(() => {
+    if (modoConferencia) focusInput()
+  }, [modoConferencia, focusInput])
 
   const pct = progress.totalItens > 0 ? Math.round((progress.itensCompletos / progress.totalItens) * 100) : 0
   const semVinculo = useMemo(() => itens.filter((i) => !i.produtoId), [itens])
@@ -268,6 +300,152 @@ export function ConferenciaScanner({ initial, canBind }: { initial: ConferenciaD
   const fb = last ? FEEDBACK[last.tipo] : null
   const FbIcon = fb?.icon
 
+  // Visor de bipagem — compartilhado entre o card normal e o modo tela cheia.
+  const visor = (
+    <div
+      className={`flex min-h-64 flex-1 flex-col items-center justify-center gap-4 rounded-xl border-2 p-4 text-center transition-colors sm:p-6 ${
+        fb ? fb.color : "border-dashed border-border text-muted-foreground"
+      }`}
+      aria-live="polite"
+    >
+      {last && FbIcon ? (
+        <div className="flex w-full flex-col items-center gap-3">
+          <div className="flex items-center gap-3">
+            <FbIcon className="h-10 w-10 shrink-0 sm:h-12 sm:w-12" />
+            <p className="text-xl font-extrabold leading-tight text-balance sm:text-2xl">{last.message}</p>
+          </div>
+
+          <div className="flex flex-wrap items-center justify-center gap-2 empty:hidden">
+            {last.item?.devolucao && (
+              <span className="inline-flex items-center gap-1.5 rounded-lg bg-destructive px-3 py-1.5 text-base font-bold uppercase tracking-wide text-destructive-foreground">
+                <RotateCcw className="h-5 w-5" />
+                Devolução
+              </span>
+            )}
+            {last.item?.compradorNome && (
+              <span className="inline-flex items-center gap-1.5 rounded-lg bg-primary px-3 py-1.5 text-base font-semibold text-primary-foreground">
+                <Truck className="h-5 w-5" />
+                Entregar para {last.item.compradorNome}
+              </span>
+            )}
+          </div>
+
+          {/* Ficha da peça: descrição → código interno em destaque → quantidade → códigos. */}
+          {last.item && (
+            <div className="w-full max-w-2xl overflow-hidden rounded-xl border border-border bg-card text-foreground shadow-sm">
+              <p className="border-b border-border px-5 py-3.5 text-center text-lg font-bold leading-snug text-balance sm:text-xl">
+                {last.item.produtoDescricao ?? last.item.descricaoNfe ?? "Sem descrição"}
+              </p>
+
+              <div className="px-5 pb-2 pt-4 text-center">
+                <span className="block text-xs font-semibold uppercase tracking-widest text-muted-foreground">
+                  Código interno
+                </span>
+                <span className="block break-all font-mono text-5xl font-extrabold leading-tight tracking-tight text-foreground sm:text-6xl">
+                  {last.item.produtoCodigo?.trim() ? last.item.produtoCodigo : "—"}
+                </span>
+              </div>
+
+              <div className="mx-5 mb-4 mt-2 rounded-xl bg-muted px-4 py-3 text-center">
+                <span className="block text-xs font-semibold uppercase tracking-widest text-muted-foreground">
+                  Conferido
+                </span>
+                <span className="block text-4xl font-extrabold tabular-nums leading-none text-foreground">
+                  {last.item.quantidadeConferida}
+                  <span className="text-2xl text-muted-foreground">/{last.item.quantidade}</span>
+                  {last.item.unidade && (
+                    <span className="ml-2 text-base font-semibold uppercase text-muted-foreground">
+                      {last.item.unidade}
+                    </span>
+                  )}
+                </span>
+              </div>
+
+              <dl className="grid grid-cols-1 gap-3 border-t border-border p-4 sm:grid-cols-2">
+                <FichaCampo label="Código original" valor={last.item.cprod} />
+                <FichaCampo label="EAN" valor={last.item.ean} />
+              </dl>
+            </div>
+          )}
+
+          {last.scanned?.descricao && last.tipo === "produto_errado" && (
+            <p className="text-sm opacity-70 text-balance">Você bipou: {last.scanned.descricao}</p>
+          )}
+        </div>
+      ) : (
+        <>
+          <ScanLine className="h-16 w-16" />
+          <p className="text-xl font-semibold text-balance sm:text-2xl">Bipe o código de barras do produto</p>
+          <p className="text-sm text-muted-foreground text-balance">
+            Aponte o leitor para o código da peça — o resultado aparece aqui em destaque.
+          </p>
+        </>
+      )}
+    </div>
+  )
+
+  const scanForm = (
+    <form onSubmit={handleScan} className="flex gap-2">
+      <Input
+        ref={inputRef}
+        value={codigo}
+        onChange={(e) => setCodigo(e.target.value)}
+        onBlur={(e) => {
+          // Só recupera o foco se ele não foi para outro campo/botão
+          // (combobox de vínculo, bipar inline, finalizar, etc.).
+          const next = e.relatedTarget as HTMLElement | null
+          if (
+            next &&
+            (next.tagName === "INPUT" ||
+              next.tagName === "BUTTON" ||
+              next.closest('[role="dialog"]') ||
+              next.closest('[role="listbox"]'))
+          ) {
+            return
+          }
+          setTimeout(focusInput, 0)
+        }}
+        placeholder="Código de barras..."
+        className="h-12 text-lg"
+        autoComplete="off"
+        inputMode="numeric"
+        autoFocus
+        aria-label="Código de barras"
+      />
+      <Button type="submit" size="lg" disabled={!codigo.trim()} className="h-12 px-6">
+        {busy ? <Loader2 className="h-5 w-5 animate-spin" /> : "Bipar"}
+      </Button>
+    </form>
+  )
+
+  // Modo conferência: tela cheia dedicada à bipagem.
+  if (modoConferencia) {
+    return (
+      <div className="fixed inset-0 z-50 flex flex-col gap-4 overflow-y-auto bg-background p-4 sm:p-6">
+        <div className="flex flex-wrap items-center justify-between gap-3">
+          <div className="min-w-0">
+            <p className="truncate text-base font-bold text-foreground">
+              {initial.nota.numero ? `Nota Nº ${initial.nota.numero}` : `Nota #${initial.nota.id}`}
+            </p>
+            <p className="truncate text-xs text-muted-foreground">{initial.nota.fornecedorNome ?? "Sem fornecedor"}</p>
+          </div>
+          <div className="flex items-center gap-3">
+            <span className="text-sm font-semibold tabular-nums text-foreground">
+              {progress.itensCompletos}/{progress.totalItens} itens · {pct}%
+            </span>
+            <Button variant="outline" onClick={toggleModoConferencia} className="gap-1.5 bg-transparent">
+              <Minimize2 className="h-4 w-4" />
+              Sair
+            </Button>
+          </div>
+        </div>
+        <Progress value={pct} className="h-3" />
+        {visor}
+        {scanForm}
+      </div>
+    )
+  }
+
   return (
     <div className="flex flex-col gap-6">
       <div className="flex flex-col gap-2">
@@ -298,119 +476,26 @@ export function ConferenciaScanner({ initial, canBind }: { initial: ConferenciaD
 
       {/* Visor de bipagem */}
       <Card className="flex flex-col gap-5 p-6">
-        <div className="flex items-center justify-between">
+        <div className="flex flex-wrap items-center justify-between gap-3">
           <span className="text-sm font-medium text-muted-foreground">
             Progresso: {progress.itensCompletos}/{progress.totalItens} itens
           </span>
-          <span className="text-sm font-semibold tabular-nums text-foreground">{pct}%</span>
+          <div className="flex items-center gap-3">
+            <span className="text-sm font-semibold tabular-nums text-foreground">{pct}%</span>
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={toggleModoConferencia}
+              className="gap-1.5 bg-transparent"
+            >
+              <Maximize2 className="h-4 w-4" />
+              Modo conferência
+            </Button>
+          </div>
         </div>
         <Progress value={pct} className="h-2.5" />
-
-        {/* Item ativo / feedback grande */}
-        <div
-          className={`flex min-h-64 flex-col items-center justify-center gap-4 rounded-xl border-2 p-6 text-center transition-colors sm:p-8 ${
-            fb ? fb.color : "border-dashed border-border text-muted-foreground"
-          }`}
-          aria-live="polite"
-        >
-          {last && FbIcon ? (
-            <div className="flex w-full flex-col items-center gap-4">
-              <FbIcon className="h-16 w-16 shrink-0" />
-              <p className="text-2xl font-extrabold leading-tight text-balance sm:text-3xl">{last.message}</p>
-
-              <div className="flex flex-wrap items-center justify-center gap-2">
-                {last.item?.devolucao && (
-                  <span className="inline-flex items-center gap-1.5 rounded-lg bg-destructive px-3 py-1.5 text-base font-bold uppercase tracking-wide text-destructive-foreground">
-                    <RotateCcw className="h-5 w-5" />
-                    Devolução
-                  </span>
-                )}
-                {last.item?.compradorNome && (
-                  <span className="inline-flex items-center gap-1.5 rounded-lg bg-primary px-3 py-1.5 text-base font-semibold text-primary-foreground">
-                    <Truck className="h-5 w-5" />
-                    Entregar para {last.item.compradorNome}
-                  </span>
-                )}
-              </div>
-
-              {/* Ficha da peça bipada — dados completos, sem valores. */}
-              {last.item && (
-                <div className="mt-1 w-full max-w-xl overflow-hidden rounded-xl border border-border bg-card text-left text-foreground shadow-sm">
-                  {/* Descrição + quantidade em destaque (o dado mais importante ao bipar) */}
-                  <div className="flex flex-col gap-4 border-b border-border p-5 sm:flex-row sm:items-center sm:justify-between">
-                    <p className="text-lg font-bold leading-snug text-balance sm:text-xl">
-                      {last.item.produtoDescricao ?? last.item.descricaoNfe ?? "Sem descrição"}
-                    </p>
-                    <div className="shrink-0 rounded-lg bg-muted px-4 py-2 text-center">
-                      <span className="block text-[11px] font-semibold uppercase tracking-wide text-muted-foreground">
-                        Conferido
-                      </span>
-                      <span className="block text-3xl font-extrabold tabular-nums leading-none text-foreground sm:text-4xl">
-                        {last.item.quantidadeConferida}
-                        <span className="text-xl text-muted-foreground">/{last.item.quantidade}</span>
-                      </span>
-                      {last.item.unidade && (
-                        <span className="block text-xs font-medium uppercase text-muted-foreground">
-                          {last.item.unidade}
-                        </span>
-                      )}
-                    </div>
-                  </div>
-                  {/* Códigos em pílulas grandes e legíveis */}
-                  <dl className="grid grid-cols-1 gap-3 p-5 sm:grid-cols-3">
-                    <FichaCampo label="Código original" valor={last.item.cprod} />
-                    <FichaCampo label="Código interno" valor={last.item.produtoCodigo} />
-                    <FichaCampo label="EAN" valor={last.item.ean} />
-                  </dl>
-                </div>
-              )}
-
-              {last.scanned?.descricao && last.tipo === "produto_errado" && (
-                <p className="text-sm opacity-70 text-balance">Você bipou: {last.scanned.descricao}</p>
-              )}
-            </div>
-          ) : (
-            <>
-              <ScanLine className="h-16 w-16" />
-              <p className="text-xl font-semibold text-balance sm:text-2xl">Bipe o código de barras do produto</p>
-              <p className="text-sm text-muted-foreground text-balance">
-                Aponte o leitor para o código da peça — o resultado aparece aqui em destaque.
-              </p>
-            </>
-          )}
-        </div>
-
-        <form onSubmit={handleScan} className="flex gap-2">
-          <Input
-            ref={inputRef}
-            value={codigo}
-            onChange={(e) => setCodigo(e.target.value)}
-            onBlur={(e) => {
-              // Só recupera o foco se ele não foi para outro campo/botão
-              // (combobox de vínculo, bipar inline, finalizar, etc.).
-              const next = e.relatedTarget as HTMLElement | null
-              if (
-                next &&
-                (next.tagName === "INPUT" ||
-                  next.tagName === "BUTTON" ||
-                  next.closest('[role="dialog"]') ||
-                  next.closest('[role="listbox"]'))
-              ) {
-                return
-              }
-              setTimeout(focusInput, 0)
-            }}
-            placeholder="Código de barras..."
-            className="h-12 text-lg"
-            autoComplete="off"
-            inputMode="numeric"
-            autoFocus
-            aria-label="Código de barras"
-          />
-          <Button type="submit" size="lg" disabled={!codigo.trim()} className="h-12 px-6">
-            {busy ? <Loader2 className="h-5 w-5 animate-spin" /> : "Bipar"}
-          </Button>
-        </form>
+        {visor}
+        {scanForm}
       </Card>
 
       {/* Itens sem vínculo (bloqueiam a conferência completa) */}
