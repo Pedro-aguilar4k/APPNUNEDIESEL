@@ -111,6 +111,17 @@ const FEEDBACK: Record<
   ja_conferido: { color: "border-warning bg-warning/10 text-warning", icon: AlertTriangle, sound: "error" },
 }
 
+// Título curto e amigável exibido no aviso dinâmico, por tipo de leitura.
+const TITULOS: Record<LeituraResult["tipo"], string> = {
+  completo: "Item conferido!",
+  parcial: "Unidade registrada",
+  duplicado_ignorado: "Leitura duplicada ignorada",
+  nao_pertence: "Produto não pertence a esta nota",
+  desconhecido: "Código não reconhecido",
+  produto_errado: "Produto não é o indicado no visor",
+  ja_conferido: "Este item já foi conferido",
+}
+
 export function ConferenciaScanner({ initial, canBind }: { initial: ConferenciaData; canBind: boolean }) {
   const [itens, setItens] = useState<GameItem[]>(initial.itens)
   const [progress, setProgress] = useState(initial.progress)
@@ -145,6 +156,15 @@ export function ConferenciaScanner({ initial, canBind }: { initial: ConferenciaD
   useEffect(() => {
     focusInput()
   }, [focusInput])
+
+  // O aviso dinâmico some sozinho e a tela volta ao estado neutro. Sucessos
+  // desaparecem mais rápido; erros/avisos ficam um pouco mais para leitura.
+  useEffect(() => {
+    if (!last) return
+    const ms = last.success ? 2600 : 4200
+    const t = setTimeout(() => setLast(null), ms)
+    return () => clearTimeout(t)
+  }, [last])
 
   // Entra/sai do modo conferência usando a Fullscreen API do navegador quando
   // disponível. Se o usuário sair com Esc, o estado acompanha.
@@ -601,6 +621,29 @@ export function ConferenciaScanner({ initial, canBind }: { initial: ConferenciaD
         </Card>
       )}
 
+      {/* Aviso dinâmico da última leitura (some sozinho) */}
+      {last && fb && FbIcon && (
+        <div
+          role="status"
+          aria-live="assertive"
+          className={`flex items-center gap-4 rounded-2xl border-2 px-5 py-4 shadow-sm duration-300 animate-in fade-in slide-in-from-top-2 ${fb.color}`}
+        >
+          <span className="flex h-12 w-12 shrink-0 items-center justify-center rounded-xl bg-background/60">
+            <FbIcon className="h-7 w-7" />
+          </span>
+          <div className="min-w-0 flex-1">
+            <p className="text-lg font-extrabold leading-tight text-balance sm:text-xl">{TITULOS[last.tipo]}</p>
+            <p className="text-sm font-medium leading-snug opacity-80 text-pretty">{last.message}</p>
+          </div>
+          {last.item && last.item.quantidade > 0 && (
+            <span className="hidden shrink-0 items-center gap-1 rounded-xl border-2 border-current px-4 py-2 font-mono text-2xl font-extrabold sm:inline-flex">
+              {last.item.quantidadeConferida}
+              <span className="text-base font-bold opacity-60">/{last.item.quantidade}</span>
+            </span>
+          )}
+        </div>
+      )}
+
       {/* Área principal: produto (esquerda) + quantidade (direita) */}
       <div className="grid grid-cols-1 gap-5 lg:grid-cols-[1.55fr_1fr]">
         {/* Produto */}
@@ -846,11 +889,19 @@ export function ConferenciaScanner({ initial, canBind }: { initial: ConferenciaD
           className="flex flex-col gap-3 rounded-2xl border border-border bg-card p-3 shadow-lg lg:flex-row lg:items-stretch"
         >
           <div
-            className={`flex items-center gap-3 rounded-xl px-4 py-3 text-primary-foreground transition-colors duration-200 lg:w-72 ${
-              fb && !last?.success ? "bg-destructive" : "bg-primary"
+            className={`flex items-center gap-3 rounded-xl px-4 py-3 transition-colors duration-200 lg:w-72 ${
+              !last
+                ? "bg-primary text-primary-foreground"
+                : last.tipo === "completo"
+                  ? "bg-success text-success-foreground"
+                  : last.tipo === "produto_errado" || last.tipo === "ja_conferido"
+                    ? "bg-warning text-warning-foreground"
+                    : last.success
+                      ? "bg-primary text-primary-foreground"
+                      : "bg-destructive text-destructive-foreground"
             }`}
           >
-            <span className="flex h-11 w-11 shrink-0 items-center justify-center rounded-lg bg-white/10">
+            <span className="flex h-11 w-11 shrink-0 items-center justify-center rounded-lg bg-background/20">
               {busy ? (
                 <Loader2 className="h-6 w-6 animate-spin" />
               ) : fb && FbIcon ? (
@@ -860,8 +911,8 @@ export function ConferenciaScanner({ initial, canBind }: { initial: ConferenciaD
               )}
             </span>
             <div className="min-w-0">
-              <p className="text-sm font-bold leading-tight">{last ? last.message : "Aguardando leitura"}</p>
-              <p className="truncate text-xs text-primary-foreground/70">
+              <p className="text-sm font-bold leading-tight">{last ? TITULOS[last.tipo] : "Aguardando leitura"}</p>
+              <p className="truncate text-xs opacity-70">
                 {last ? "Pronto para a próxima leitura" : "Posicione o código de barras no leitor ou digite manualmente"}
               </p>
             </div>
