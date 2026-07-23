@@ -25,6 +25,7 @@ function gamePayload(item: ItemRow, produtoDescricao?: string | null, produtoCod
     quantidade: qtyNum(item.quantidade),
     quantidadeConferida: qtyNum(item.quantidadeConferida),
     unidade: item.unidade,
+    ncm: item.ncm,
     statusConferencia: item.statusConferencia,
     devolucao: item.devolucao,
     compradorNome: item.compradorNome,

@@ -1,10 +1,9 @@
 "use client"
 
 import { useCallback, useEffect, useMemo, useRef, useState } from "react"
-import Link from "next/link"
+import Image from "next/image"
 import { toast } from "sonner"
 import {
-  ArrowLeft,
   ScanLine,
   CheckCircle2,
   XCircle,
@@ -17,6 +16,13 @@ import {
   RotateCcw,
   Truck,
   User,
+  LogOut,
+  FastForward,
+  Barcode,
+  FileText,
+  ListChecks,
+  Package,
+  Box,
 } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { Card } from "@/components/ui/card"
@@ -45,6 +51,7 @@ type GameItem = {
   quantidade: number
   quantidadeConferida: number
   unidade: string | null
+  ncm: string | null
   statusConferencia: string
   devolucao: boolean
   compradorNome: string | null
@@ -113,6 +120,9 @@ export function ConferenciaScanner({ initial, canBind }: { initial: ConferenciaD
   const [busy, setBusy] = useState(false)
   const [last, setLast] = useState<LeituraResult | null>(null)
   const [activeId, setActiveId] = useState<number | null>(null)
+  // Itens "pulados" — apenas navegação visual no cliente, não persiste nada.
+  const [skippedIds, setSkippedIds] = useState<Set<number>>(() => new Set())
+  const [showAllItems, setShowAllItems] = useState(false)
   // Se a nota já foi finalizada, abre direto no relatório.
   const [finalizado, setFinalizado] = useState(
     initial.nota.status === "conferida" || initial.nota.status === "divergente",
@@ -169,19 +179,53 @@ export function ConferenciaScanner({ initial, canBind }: { initial: ConferenciaD
   const semVinculo = useMemo(() => itens.filter((i) => !i.produtoId), [itens])
   const activeItem = useMemo(() => itens.find((i) => i.id === activeId) ?? null, [itens, activeId])
 
+  // Item exibido nos painéis: o item em contagem no visor, senão o próximo
+  // pendente ainda não pulado, senão qualquer pendente, senão o último.
+  const currentItem = useMemo(() => {
+    if (activeItem && activeItem.quantidadeConferida < activeItem.quantidade) return activeItem
+    const pendentes = itens.filter(
+      (i) => i.produtoId && i.quantidade > 0 && i.quantidadeConferida < i.quantidade,
+    )
+    const naoPulado = pendentes.find((i) => !skippedIds.has(i.id))
+    return naoPulado ?? pendentes[0] ?? itens[itens.length - 1] ?? null
+  }, [activeItem, itens, skippedIds])
+
+  const currentIndex = useMemo(
+    () => (currentItem ? itens.findIndex((i) => i.id === currentItem.id) : -1),
+    [currentItem, itens],
+  )
+
+  // Indicadores dos cards superiores.
+  const totalItens = progress.totalItens || itens.length
+  const conferidos = progress.itensCompletos
+  const pendentes = Math.max(0, totalItens - conferidos)
+  const pulados = useMemo(
+    () => itens.filter((i) => skippedIds.has(i.id) && i.quantidadeConferida < i.quantidade).length,
+    [itens, skippedIds],
+  )
+  const pctDe = (n: number) => (totalItens > 0 ? Math.round((n / totalItens) * 100) : 0)
+
   function applyResult(res: LeituraResult) {
     setLast(res)
     setProgress(res.progress)
     const fb = FEEDBACK[res.tipo]
     beep(fb.sound)
     if (res.item) {
+      const itemId = res.item.id
       setItens((prev) =>
         prev.map((i) =>
-          i.id === res.item!.id
+          i.id === itemId
             ? { ...i, quantidadeConferida: res.item!.quantidadeConferida, statusConferencia: res.item!.statusConferencia }
             : i,
         ),
       )
+      // Bipou um item que estava pulado — remove da lista de pulados.
+      setSkippedIds((prev) => {
+        if (!prev.has(itemId)) return prev
+        const next = new Set(prev)
+        next.delete(itemId)
+        return next
+      })
       // Mantém como item ativo enquanto não estiver completo.
       if (res.tipo === "parcial") {
         setActiveId(res.item.id)
@@ -193,6 +237,8 @@ export function ConferenciaScanner({ initial, canBind }: { initial: ConferenciaD
     }
     if (res.notaCompleta && res.success) {
       toast.success("Todos os itens foram conferidos!")
+    } else if (!res.success) {
+      toast.error(res.message)
     }
   }
 
@@ -243,6 +289,19 @@ export function ConferenciaScanner({ initial, canBind }: { initial: ConferenciaD
     setCodigo("")
     focusInput()
     void drainQueue()
+  }
+
+  // Pular item: apenas navegação visual (avança para o próximo pendente).
+  function handlePularItem() {
+    if (!currentItem) return
+    setSkippedIds((prev) => {
+      const next = new Set(prev)
+      next.add(currentItem.id)
+      return next
+    })
+    setActiveId(null)
+    activeIdRef.current = null
+    focusInput()
   }
 
   async function handleBind(itemId: number, produtoId: number, descricao: string) {
@@ -300,7 +359,7 @@ export function ConferenciaScanner({ initial, canBind }: { initial: ConferenciaD
   const fb = last ? FEEDBACK[last.tipo] : null
   const FbIcon = fb?.icon
 
-  // Visor de bipagem — compartilhado entre o card normal e o modo tela cheia.
+  // Visor de bipagem — usado apenas no modo tela cheia.
   const visor = (
     <div
       className={`flex min-h-64 flex-1 flex-col items-center justify-center gap-4 rounded-xl border-2 p-4 text-center transition-colors sm:p-6 ${
@@ -330,7 +389,6 @@ export function ConferenciaScanner({ initial, canBind }: { initial: ConferenciaD
             )}
           </div>
 
-          {/* Ficha da peça: descrição → código interno em destaque → quantidade → códigos. */}
           {last.item && (
             <div className="w-full max-w-2xl overflow-hidden rounded-xl border border-border bg-card text-foreground shadow-sm">
               <p className="border-b border-border px-5 py-3.5 text-center text-lg font-bold leading-snug text-balance sm:text-xl">
@@ -384,15 +442,17 @@ export function ConferenciaScanner({ initial, canBind }: { initial: ConferenciaD
     </div>
   )
 
+  // Formulário de bipagem simples (modo tela cheia).
   const scanForm = (
     <form onSubmit={handleScan} className="flex gap-2">
       <Input
         ref={inputRef}
         value={codigo}
         onChange={(e) => setCodigo(e.target.value)}
+        onKeyDown={(e) => {
+          if (e.key === "Enter" && (e.nativeEvent.isComposing || e.keyCode === 229)) e.preventDefault()
+        }}
         onBlur={(e) => {
-          // Só recupera o foco se ele não foi para outro campo/botão
-          // (combobox de vínculo, bipar inline, finalizar, etc.).
           const next = e.relatedTarget as HTMLElement | null
           if (
             next &&
@@ -446,69 +506,93 @@ export function ConferenciaScanner({ initial, canBind }: { initial: ConferenciaD
     )
   }
 
-  return (
-    <div className="flex flex-col gap-6">
-      <div className="flex flex-col gap-2">
-        <Button asChild variant="ghost" size="sm" className="w-fit -ml-2 text-muted-foreground">
-          <Link href="/estoque/conferencia">
-            <ArrowLeft className="mr-1.5 h-4 w-4" />
-            Voltar
-          </Link>
-        </Button>
-        <div className="flex flex-col gap-1 sm:flex-row sm:items-center sm:justify-between">
-          <div>
-            <h1 className="text-2xl font-bold text-foreground">
-              {initial.nota.numero ? `Conferência · Nota Nº ${initial.nota.numero}` : `Conferência · Nota #${initial.nota.id}`}
-            </h1>
-            <p className="text-sm text-muted-foreground">{initial.nota.fornecedorNome ?? "Sem fornecedor"}</p>
-            {initial.nota.importadoPor && (
-              <p className="mt-1 inline-flex items-center gap-1.5 text-xs text-muted-foreground">
-                <User className="h-3.5 w-3.5" />
-                Importada por <span className="font-medium text-foreground">{initial.nota.importadoPor}</span>
-              </p>
-            )}
-          </div>
-          <Button onClick={handleFinalizar} variant="outline">
-            Finalizar conferência
-          </Button>
-        </div>
-      </div>
+  const codigoInterno = currentItem?.produtoCodigo?.trim() ? currentItem.produtoCodigo : "—"
 
-      {/* Visor de bipagem */}
-      <Card className="flex flex-col gap-5 p-6">
-        <div className="flex flex-wrap items-center justify-between gap-3">
-          <span className="text-sm font-medium text-muted-foreground">
-            Progresso: {progress.itensCompletos}/{progress.totalItens} itens
-          </span>
-          <div className="flex items-center gap-3">
-            <span className="text-sm font-semibold tabular-nums text-foreground">{pct}%</span>
+  return (
+    <div className="flex flex-col gap-5 pb-32">
+      {/* Cabeçalho: marca + título + indicadores + encerrar */}
+      <header className="flex flex-col gap-5">
+        <div className="flex flex-col gap-4 xl:flex-row xl:items-start xl:justify-between">
+          <div className="flex items-start gap-3">
+            <Image
+              src="/nune-logo.png"
+              alt="NuneDiesel"
+              width={52}
+              height={36}
+              className="brand-logo mt-0.5 h-9 w-auto shrink-0 object-contain"
+            />
+            <div>
+              <p className="text-xs font-bold uppercase tracking-[0.18em] text-primary">Operação de entrada</p>
+              <h1 className="text-2xl font-bold tracking-tight text-foreground text-balance sm:text-3xl">
+                Conferência de NF-e
+              </h1>
+              <p className="mt-1 text-sm text-muted-foreground">
+                {initial.nota.numero ? `Nota Nº ${initial.nota.numero}` : `Nota #${initial.nota.id}`}
+                {initial.nota.fornecedorNome ? ` · ${initial.nota.fornecedorNome}` : ""}
+              </p>
+            </div>
+          </div>
+
+          <div className="flex flex-wrap items-stretch gap-3">
+            <IndicadorCard
+              icon={CheckCircle2}
+              tone="success"
+              valor={conferidos}
+              titulo="Conferidos"
+              rodape={`${pctDe(conferidos)}% do total`}
+            />
+            <IndicadorCard
+              icon={Box}
+              tone="primary"
+              valor={pendentes}
+              titulo="Pendentes"
+              rodape={`${pctDe(pendentes)}% do total`}
+            />
+            <IndicadorCard
+              icon={FastForward}
+              tone="warning"
+              valor={pulados}
+              titulo="Pulados"
+              rodape={`${pctDe(pulados)}% do total`}
+            />
+            <IndicadorCard
+              icon={Barcode}
+              tone="muted"
+              valor={totalItens}
+              titulo="Total de itens"
+            />
             <Button
+              onClick={handleFinalizar}
               variant="outline"
-              size="sm"
-              onClick={toggleModoConferencia}
-              className="gap-1.5 bg-transparent"
+              className="h-auto gap-2 self-stretch bg-transparent px-5"
             >
-              <Maximize2 className="h-4 w-4" />
-              Modo conferência
+              <LogOut className="h-4 w-4" />
+              Encerrar conferência
             </Button>
           </div>
         </div>
-        <Progress value={pct} className="h-2.5" />
-        {visor}
-        {scanForm}
-      </Card>
+
+        {/* Barra de progresso */}
+        <div className="relative">
+          <Progress value={pct} className="h-4 [&>*]:bg-success [&>*]:transition-all [&>*]:duration-500" />
+          <span className="mt-2 flex justify-center">
+            <span className="rounded-full bg-success/10 px-3 py-1 text-xs font-bold text-success">
+              {pct}% concluído
+            </span>
+          </span>
+        </div>
+      </header>
 
       {/* Itens sem vínculo (bloqueiam a conferência completa) */}
       {semVinculo.length > 0 && (
         <Card className="flex flex-col gap-3 border-warning/40 bg-warning/5 p-5">
           <div className="flex items-center gap-2 text-warning">
             <AlertTriangle className="h-4 w-4" />
-            <h2 className="text-sm font-semibold">
-              {semVinculo.length} item(ns) sem produto vinculado
-            </h2>
+            <h2 className="text-sm font-semibold">{semVinculo.length} item(ns) sem produto vinculado</h2>
           </div>
           <p className="text-sm text-muted-foreground">
-            Vincule cada item a um produto do catálogo para poder conferi-lo. O sistema memoriza o vínculo por fornecedor.
+            Vincule cada item a um produto do catálogo para poder conferi-lo. O sistema memoriza o vínculo por
+            fornecedor.
           </p>
           <div className="flex flex-col divide-y divide-border">
             {semVinculo.map((i) => (
@@ -528,83 +612,362 @@ export function ConferenciaScanner({ initial, canBind }: { initial: ConferenciaD
         </Card>
       )}
 
-      {/* Lista de itens */}
-      <Card className="flex flex-col divide-y divide-border">
-        {itens.map((i) => {
-          const done = i.quantidadeConferida >= i.quantidade && i.quantidade > 0
-          const isActive = i.id === activeId
-          return (
-            <div
-              key={i.id}
-              className={`flex flex-col gap-2 p-4 sm:flex-row sm:items-center sm:justify-between ${
-                i.devolucao ? "border-l-4 border-destructive bg-destructive/5" : ""
-              } ${isActive ? "bg-primary/5" : ""}`}
-            >
-              <div className="min-w-0 flex-1">
-                <div className="flex flex-wrap items-center gap-2">
-                  {i.devolucao && (
-                    <span className="inline-flex items-center gap-1 rounded-md bg-destructive px-2 py-0.5 text-xs font-bold uppercase tracking-wide text-destructive-foreground">
-                      <RotateCcw className="h-3.5 w-3.5" />
-                      Devolução
-                    </span>
-                  )}
-                  <p className="truncate font-medium text-foreground">
-                    {i.produtoDescricao ?? i.descricaoNfe}
-                  </p>
-                  <ItemStatusBadge status={done ? "conferido" : i.produtoId ? i.statusConferencia : "nao_encontrado"} />
-                </div>
-                <p className="text-xs text-muted-foreground">
-                  {i.produtoDescricao ? `NF-e: ${i.descricaoNfe}` : `Cód. fornecedor: ${i.cprod ?? "—"}`}
-                  {i.ean ? ` · EAN ${i.ean}` : ""}
+      {/* Área principal: produto (esquerda) + quantidade (direita) */}
+      <div className="grid grid-cols-1 gap-5 lg:grid-cols-[1.55fr_1fr]">
+        {/* Produto */}
+        <Card className="flex flex-col gap-6 p-6 sm:p-7">
+          <div className="flex items-center justify-between gap-3">
+            <span className="inline-flex items-center gap-2 rounded-lg bg-success/10 px-3 py-1.5 text-xs font-bold uppercase tracking-wide text-success">
+              <Package className="h-4 w-4" />
+              {currentItem ? `Item ${currentIndex + 1} de ${itens.length}` : `${itens.length} itens`}
+            </span>
+            {currentItem && skippedIds.has(currentItem.id) && (
+              <span className="inline-flex items-center gap-1.5 rounded-lg bg-warning/10 px-3 py-1.5 text-xs font-bold uppercase tracking-wide text-warning">
+                <FastForward className="h-3.5 w-3.5" />
+                Pulado
+              </span>
+            )}
+          </div>
+
+          {currentItem ? (
+            <>
+              <div className="flex flex-wrap items-center gap-2 empty:hidden">
+                {currentItem.devolucao && (
+                  <span className="inline-flex items-center gap-1.5 rounded-lg bg-destructive px-3 py-1.5 text-sm font-bold uppercase tracking-wide text-destructive-foreground">
+                    <RotateCcw className="h-4 w-4" />
+                    Devolução
+                  </span>
+                )}
+                {currentItem.compradorNome && (
+                  <span className="inline-flex items-center gap-1.5 rounded-lg bg-primary px-3 py-1.5 text-sm font-semibold text-primary-foreground">
+                    <Truck className="h-4 w-4" />
+                    Entregar para {currentItem.compradorNome}
+                  </span>
+                )}
+              </div>
+
+              <div>
+                <p className="text-xs font-semibold uppercase tracking-widest text-muted-foreground">
+                  Código interno
                 </p>
-                {(i.compradorNome || i.quantidadeOriginal != null) && (
-                  <div className="mt-1 flex flex-wrap items-center gap-x-3 gap-y-1 text-xs">
-                    {i.compradorNome && (
-                      <span className="inline-flex items-center gap-1 font-medium text-primary">
-                        <Truck className="h-3.5 w-3.5" />
-                        Entregar para {i.compradorNome}
+                <p className="break-all font-mono text-6xl font-extrabold leading-none tracking-tight text-success sm:text-7xl">
+                  {codigoInterno}
+                </p>
+              </div>
+
+              <div>
+                <p className="text-xs font-semibold uppercase tracking-widest text-muted-foreground">Descrição</p>
+                <p className="mt-1 text-2xl font-bold leading-snug text-foreground text-balance sm:text-3xl">
+                  {currentItem.produtoDescricao ?? currentItem.descricaoNfe ?? "Sem descrição"}
+                </p>
+              </div>
+
+              <div>
+                <p className="text-xs font-semibold uppercase tracking-widest text-muted-foreground">
+                  Código original (nota)
+                </p>
+                <div className="mt-1.5 inline-flex rounded-lg border border-border bg-muted/50 px-4 py-2.5">
+                  <span className="font-mono text-xl font-bold text-foreground">
+                    {currentItem.cprod?.trim() ? currentItem.cprod : "—"}
+                  </span>
+                </div>
+              </div>
+
+              <div className="grid grid-cols-1 gap-3 rounded-xl border border-border bg-muted/30 p-4 sm:grid-cols-2">
+                <FichaCampo label="NCM" valor={currentItem.ncm} icon={FileText} />
+                <FichaCampo label="EAN (GTIN)" valor={currentItem.ean} icon={Barcode} />
+              </div>
+            </>
+          ) : (
+            <div className="flex flex-1 flex-col items-center justify-center gap-3 py-10 text-center text-muted-foreground">
+              <PackageCheck className="h-12 w-12 text-success" />
+              <p className="text-lg font-semibold text-foreground">Todos os itens conferidos</p>
+              <p className="text-sm">Encerre a conferência para gerar o relatório.</p>
+            </div>
+          )}
+        </Card>
+
+        {/* Quantidade */}
+        <Card className="flex flex-col gap-5 p-6 sm:p-7">
+          <div>
+            <p className="text-xs font-semibold uppercase tracking-widest text-muted-foreground">Quantidade da nota</p>
+            <p className="mt-1 flex items-end gap-2 leading-none">
+              <span className="font-mono text-6xl font-extrabold tabular-nums tracking-tight text-primary sm:text-7xl">
+                {currentItem ? currentItem.quantidade : "—"}
+              </span>
+              {currentItem && (
+                <span className="mb-1 text-2xl font-semibold uppercase text-muted-foreground">
+                  {currentItem.unidade ?? "UN"}
+                </span>
+              )}
+            </p>
+          </div>
+
+          <div>
+            <p className="text-xs font-semibold uppercase tracking-widest text-muted-foreground">Conferido</p>
+            <div className="mt-1.5 flex items-center justify-center rounded-xl border-2 border-success bg-success/5 px-4 py-5 transition-all duration-200">
+              <span className="flex items-end gap-2 leading-none">
+                <span className="font-mono text-5xl font-extrabold tabular-nums text-success">
+                  {currentItem ? currentItem.quantidadeConferida : 0}
+                </span>
+                <span className="mb-0.5 text-xl font-semibold uppercase text-success/70">
+                  {currentItem?.unidade ?? "UN"}
+                </span>
+              </span>
+            </div>
+          </div>
+
+          <div className="flex flex-col gap-2">
+            <Button
+              onClick={handlePularItem}
+              variant="outline"
+              disabled={!currentItem}
+              className="h-14 gap-2 border-warning/60 bg-transparent text-base font-bold text-warning hover:bg-warning/10 hover:text-warning"
+            >
+              <FastForward className="h-5 w-5" />
+              Pular este item
+            </Button>
+            <p className="text-center text-sm leading-relaxed text-muted-foreground">
+              Não encontrei todas as unidades agora.
+              <br />
+              Posso conferir depois.
+            </p>
+          </div>
+
+          {/* Bipar código inline para itens sem EAN cadastrado */}
+          {currentItem?.produtoId &&
+            !currentItem.ean &&
+            currentItem.quantidadeConferida < currentItem.quantidade && (
+              <div className="rounded-lg border border-dashed border-border bg-muted/20 p-3">
+                <p className="mb-2 text-xs font-medium text-muted-foreground">
+                  Este item não tem EAN. Bipe um código para cadastrá-lo:
+                </p>
+                <BipCodigoInline onSubmit={(v) => handleAddCodeToItem(currentItem.id, v)} />
+              </div>
+            )}
+        </Card>
+      </div>
+
+      {/* Ver todos os itens */}
+      <div className="flex justify-end">
+        <Button
+          variant="outline"
+          onClick={() => setShowAllItems((v) => !v)}
+          className="gap-2 bg-transparent text-primary"
+        >
+          <ListChecks className="h-4 w-4" />
+          {showAllItems ? "Ocultar itens" : "Ver todos os itens"}
+        </Button>
+      </div>
+
+      {showAllItems && (
+        <Card className="flex flex-col divide-y divide-border">
+          {itens.map((i) => {
+            const done = i.quantidadeConferida >= i.quantidade && i.quantidade > 0
+            const isActive = i.id === currentItem?.id
+            const isSkipped = skippedIds.has(i.id) && !done
+            return (
+              <div
+                key={i.id}
+                className={`flex flex-col gap-2 p-4 transition-colors sm:flex-row sm:items-center sm:justify-between ${
+                  i.devolucao ? "border-l-4 border-destructive bg-destructive/5" : ""
+                } ${isActive ? "bg-primary/5" : ""}`}
+              >
+                <div className="min-w-0 flex-1">
+                  <div className="flex flex-wrap items-center gap-2">
+                    {i.devolucao && (
+                      <span className="inline-flex items-center gap-1 rounded-md bg-destructive px-2 py-0.5 text-xs font-bold uppercase tracking-wide text-destructive-foreground">
+                        <RotateCcw className="h-3.5 w-3.5" />
+                        Devolução
                       </span>
                     )}
-                    {i.quantidadeOriginal != null && (
-                      <span
-                        className="inline-flex items-center gap-1 text-amber-600 dark:text-amber-400"
-                        title={i.justificativaQuantidade ?? undefined}
-                      >
-                        <AlertTriangle className="h-3.5 w-3.5" />
-                        Qtd ajustada (era {i.quantidadeOriginal})
+                    <p className="truncate font-medium text-foreground">{i.produtoDescricao ?? i.descricaoNfe}</p>
+                    {isSkipped ? (
+                      <span className="inline-flex items-center gap-1 rounded-md bg-warning/15 px-2 py-0.5 text-xs font-semibold text-warning">
+                        <FastForward className="h-3 w-3" />
+                        Pulado
                       </span>
+                    ) : (
+                      <ItemStatusBadge
+                        status={done ? "conferido" : i.produtoId ? i.statusConferencia : "nao_encontrado"}
+                      />
                     )}
                   </div>
-                )}
+                  <p className="text-xs text-muted-foreground">
+                    {i.produtoDescricao ? `NF-e: ${i.descricaoNfe}` : `Cód. fornecedor: ${i.cprod ?? "—"}`}
+                    {i.ean ? ` · EAN ${i.ean}` : ""}
+                  </p>
+                  {(i.compradorNome || i.quantidadeOriginal != null) && (
+                    <div className="mt-1 flex flex-wrap items-center gap-x-3 gap-y-1 text-xs">
+                      {i.compradorNome && (
+                        <span className="inline-flex items-center gap-1 font-medium text-primary">
+                          <Truck className="h-3.5 w-3.5" />
+                          Entregar para {i.compradorNome}
+                        </span>
+                      )}
+                      {i.quantidadeOriginal != null && (
+                        <span
+                          className="inline-flex items-center gap-1 text-amber-600 dark:text-amber-400"
+                          title={i.justificativaQuantidade ?? undefined}
+                        >
+                          <AlertTriangle className="h-3.5 w-3.5" />
+                          Qtd ajustada (era {i.quantidadeOriginal})
+                        </span>
+                      )}
+                    </div>
+                  )}
+                </div>
+                <div className="flex items-center gap-4">
+                  <span className={`text-sm font-semibold tabular-nums ${done ? "text-success" : "text-foreground"}`}>
+                    {i.quantidadeConferida} / {i.quantidade} {i.unidade ?? ""}
+                  </span>
+                  {i.produtoId && !i.ean && !done && (
+                    <BipCodigoInline onSubmit={(v) => handleAddCodeToItem(i.id, v)} />
+                  )}
+                  {!done && i.produtoId && (
+                    <Button
+                      size="sm"
+                      variant={isActive ? "default" : "outline"}
+                      onClick={() => {
+                        setActiveId(i.id)
+                        activeIdRef.current = i.id
+                        setSkippedIds((prev) => {
+                          if (!prev.has(i.id)) return prev
+                          const next = new Set(prev)
+                          next.delete(i.id)
+                          return next
+                        })
+                        focusInput()
+                      }}
+                    >
+                      {isActive ? "No visor" : "Focar"}
+                    </Button>
+                  )}
+                </div>
               </div>
-              <div className="flex items-center gap-4">
-                <span
-                  className={`text-sm font-semibold tabular-nums ${done ? "text-success" : "text-foreground"}`}
-                >
-                  {i.quantidadeConferida} / {i.quantidade} {i.unidade ?? ""}
-                </span>
-                {i.produtoId && !i.ean && !done && (
-                  <BipCodigoInline onSubmit={(v) => handleAddCodeToItem(i.id, v)} />
-                )}
-                {!done && i.produtoId && (
-                  <Button
-                    size="sm"
-                    variant={isActive ? "default" : "outline"}
-                    onClick={() => {
-                      setActiveId(i.id)
-                      activeIdRef.current = i.id
-                      focusInput()
-                    }}
-                  >
-                    {isActive ? "No visor" : "Focar"}
-                  </Button>
-                )}
-              </div>
+            )
+          })}
+        </Card>
+      )}
+
+      {/* Barra de bipagem fixa */}
+      <div className="sticky bottom-3 z-30 mt-1">
+        <form
+          onSubmit={handleScan}
+          className="flex flex-col gap-3 rounded-2xl border border-border bg-card p-3 shadow-lg lg:flex-row lg:items-stretch"
+        >
+          <div
+            className={`flex items-center gap-3 rounded-xl px-4 py-3 text-primary-foreground transition-colors duration-200 lg:w-72 ${
+              fb && !last?.success ? "bg-destructive" : "bg-primary"
+            }`}
+          >
+            <span className="flex h-11 w-11 shrink-0 items-center justify-center rounded-lg bg-white/10">
+              {busy ? (
+                <Loader2 className="h-6 w-6 animate-spin" />
+              ) : fb && FbIcon ? (
+                <FbIcon className="h-6 w-6" />
+              ) : (
+                <ScanLine className="h-6 w-6" />
+              )}
+            </span>
+            <div className="min-w-0">
+              <p className="text-sm font-bold leading-tight">{last ? last.message : "Aguardando leitura"}</p>
+              <p className="truncate text-xs text-primary-foreground/70">
+                {last ? "Pronto para a próxima leitura" : "Posicione o código de barras no leitor ou digite manualmente"}
+              </p>
             </div>
-          )
-        })}
-      </Card>
+          </div>
+
+          <div className="relative flex flex-1 items-center">
+            <Barcode className="pointer-events-none absolute right-4 h-5 w-5 text-muted-foreground" />
+            <Input
+              ref={inputRef}
+              value={codigo}
+              onChange={(e) => setCodigo(e.target.value)}
+              onKeyDown={(e) => {
+                if (e.key === "Enter" && (e.nativeEvent.isComposing || e.keyCode === 229)) e.preventDefault()
+              }}
+              onBlur={(e) => {
+                // Só recupera o foco se ele não foi para outro campo/botão.
+                const next = e.relatedTarget as HTMLElement | null
+                if (
+                  next &&
+                  (next.tagName === "INPUT" ||
+                    next.tagName === "BUTTON" ||
+                    next.closest('[role="dialog"]') ||
+                    next.closest('[role="listbox"]'))
+                ) {
+                  return
+                }
+                setTimeout(focusInput, 0)
+              }}
+              placeholder="Digite ou escaneie o código de barras..."
+              className="h-14 pr-11 text-lg"
+              autoComplete="off"
+              inputMode="numeric"
+              autoFocus
+              aria-label="Código de barras"
+            />
+          </div>
+
+          <Button
+            type="submit"
+            disabled={!codigo.trim() || busy}
+            className="h-14 gap-2 bg-success px-8 text-lg font-bold text-success-foreground hover:bg-success/90"
+          >
+            {busy ? <Loader2 className="h-6 w-6 animate-spin" /> : <Barcode className="h-6 w-6" />}
+            BIPAR
+          </Button>
+        </form>
+        <p className="mt-2 flex items-center justify-between gap-3 px-1 text-xs text-muted-foreground">
+          <span>Dica: você pode digitar o EAN, GTIN ou código de barras do produto.</span>
+          <Button
+            type="button"
+            variant="ghost"
+            size="sm"
+            onClick={toggleModoConferencia}
+            className="h-auto gap-1.5 px-2 py-1 text-muted-foreground"
+          >
+            <Maximize2 className="h-3.5 w-3.5" />
+            Modo tela cheia
+          </Button>
+        </p>
+      </div>
     </div>
+  )
+}
+
+// Card indicador do topo (Conferidos, Pendentes, Pulados, Total).
+function IndicadorCard({
+  icon: Icon,
+  tone,
+  valor,
+  titulo,
+  rodape,
+}: {
+  icon: typeof CheckCircle2
+  tone: "success" | "primary" | "warning" | "muted"
+  valor: number
+  titulo: string
+  rodape?: string
+}) {
+  const tones: Record<string, string> = {
+    success: "bg-success/10 text-success",
+    primary: "bg-primary/10 text-primary",
+    warning: "bg-warning/10 text-warning",
+    muted: "bg-muted text-muted-foreground",
+  }
+  return (
+    <Card className="flex min-w-[9rem] items-center gap-3 p-4">
+      <span className={`flex h-11 w-11 shrink-0 items-center justify-center rounded-xl ${tones[tone]}`}>
+        <Icon className="h-5 w-5" />
+      </span>
+      <div className="min-w-0">
+        <p className="text-2xl font-extrabold leading-none tabular-nums text-foreground">{valor}</p>
+        <p className="mt-1 text-sm font-medium text-foreground">{titulo}</p>
+        {rodape && <p className="text-xs text-muted-foreground">{rodape}</p>}
+      </div>
+    </Card>
   )
 }
 
@@ -647,14 +1010,23 @@ function BipCodigoInline({ onSubmit }: { onSubmit: (value: string) => void }) {
   )
 }
 
-/** Campo da ficha da peça bipada (rótulo + valor) em formato de pílula legível. */
-function FichaCampo({ label, valor }: { label: string; valor?: string | null }) {
+/** Campo da ficha da peça (rótulo + valor) em formato de pílula legível. */
+function FichaCampo({
+  label,
+  valor,
+  icon: Icon,
+}: {
+  label: string
+  valor?: string | null
+  icon?: typeof CheckCircle2
+}) {
   return (
-    <div className="rounded-lg border border-border bg-muted/40 px-3 py-2">
-      <dt className="text-[11px] font-semibold uppercase tracking-wide text-muted-foreground">{label}</dt>
-      <dd className="mt-0.5 truncate font-mono text-base font-bold text-foreground">
-        {valor?.trim() ? valor : "—"}
-      </dd>
+    <div className="rounded-lg border border-border bg-card px-3 py-2">
+      <dt className="flex items-center gap-1.5 text-[11px] font-semibold uppercase tracking-wide text-muted-foreground">
+        {label}
+        {Icon && <Icon className="h-3.5 w-3.5 text-primary" />}
+      </dt>
+      <dd className="mt-0.5 truncate font-mono text-base font-bold text-foreground">{valor?.trim() ? valor : "—"}</dd>
     </div>
   )
 }
