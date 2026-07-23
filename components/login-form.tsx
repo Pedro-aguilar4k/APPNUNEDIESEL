@@ -71,37 +71,43 @@ export function LoginForm() {
 
       <section className="login-stage">
         <div className="login-brand-panel" aria-hidden="true">
-          <div className="login-orbit login-orbit-outer" />
-          <div className="login-orbit login-orbit-inner" />
-          <div className="login-technical-grid" />
-          <div className="login-serial">ND / 01</div>
+          <Image
+            src="/images/login-operations.png"
+            alt=""
+            fill
+            sizes="(max-width: 700px) 100vw, 58vw"
+            className="login-operations-image"
+            priority
+          />
+          <div className="login-image-overlay" />
+          <div className="login-serial">NUNEDIESEL / OPERAÇÃO INTEGRADA</div>
 
           <div className="login-brand-copy">
             <span className="login-eyebrow">
-              <i /> Operação de entrada
+              <i /> Gestão operacional completa
             </span>
             <h1>
-              Precisão que
+              Toda a operação.
               <br />
-              mantém tudo
+              Uma só
               <br />
-              <strong>em movimento.</strong>
+              <strong>direção.</strong>
             </h1>
-            <p>Conferência de NF-e, vinculação de produtos e controle de entrada em um fluxo único.</p>
+            <p>Estoque, documentos, equipe, garantias e produtividade conectados em um único ambiente.</p>
           </div>
 
           <div className="login-specs">
             <div>
-              <b>NF-e</b>
-              <span>Conferência</span>
+              <b>360°</b>
+              <span>Visão da operação</span>
             </div>
             <div>
-              <b>SKU</b>
-              <span>Vinculação</span>
+              <b>ÚNICO</b>
+              <span>Fluxo integrado</span>
             </div>
             <div>
               <b>24/7</b>
-              <span>Operação</span>
+              <span>Controle contínuo</span>
             </div>
           </div>
         </div>
@@ -114,7 +120,7 @@ export function LoginForm() {
             <div className="login-form-heading">
               <p className="login-kicker">Acesso ao sistema</p>
               <h2>Bem-vindo de volta.</h2>
-              <p>Use suas credenciais para continuar sua operação.</p>
+              <p>Use suas credenciais para acessar seu ambiente de trabalho.</p>
             </div>
 
             <form onSubmit={handleSubmit} className="login-form">
@@ -180,7 +186,7 @@ export function LoginForm() {
 
       <footer className="login-footer">
         <span>NuneDiesel Autopeças</span>
-        <span>Conferência NF-e · v2.0</span>
+        <span>Gestão operacional integrada · v2.0</span>
       </footer>
     </main>
   )

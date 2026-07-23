@@ -411,19 +411,27 @@ export const preferenciasUsuario = pgTable("preferencias_usuario", {
   updatedAt: timestamp("updated_at").notNull().defaultNow(),
 })
 
-// Modulos de controle livre. Cada modulo e uma pequena planilha (grade) definida
-// pelo usuario: um titulo, N colunas e N linhas. A primeira coluna e o rotulo de
-// cada linha; as demais sao valores numericos plotados num grafico de barras.
-// Compartilhado com toda a equipe (acesso por papel nas server actions).
+export type ControleColuna = {
+  id: string
+  nome: string
+  tipo: "texto" | "numero" | "data" | "status"
+  opcoes?: string[]
+}
+
+export type ControleLinha = {
+  id: string
+  valores: Record<string, string>
+}
+
+// Modulos de tabelas livres. A estrutura e os dados ficam em JSONB para permitir
+// colunas configuraveis sem alterar o schema fisico a cada novo modulo.
 export const modulosControle = pgTable(
   "modulos_controle",
   {
     id: serial("id").primaryKey(),
     titulo: text("titulo").notNull(),
-    // Cabecalhos das colunas. O primeiro e o rotulo (categoria); os demais, series.
-    colunas: jsonb("colunas").notNull().$type<string[]>(),
-    // Matriz de linhas. Cada linha: [rotulo, valor1, valor2, ...] (strings).
-    linhas: jsonb("linhas").notNull().$type<string[][]>(),
+    colunas: jsonb("colunas").notNull().$type<ControleColuna[]>(),
+    linhas: jsonb("linhas").notNull().$type<ControleLinha[]>(),
     ordem: integer("ordem").notNull().default(0),
     createdBy: text("created_by"),
     createdByNome: text("created_by_nome"),

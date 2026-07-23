@@ -19,8 +19,8 @@ export default async function ControleEstoquePage() {
   return (
     <div className="flex flex-col gap-6">
       <PageHeader
-        title="Controle"
-        description="Monte módulos com os indicadores que a equipe precisa acompanhar."
+        title="Tabelas livres"
+        description="Crie módulos de controle personalizados e edite suas planilhas diretamente."
       />
       <ControleManager modulosIniciais={modulos} canWrite={canWrite} />
     </div>
