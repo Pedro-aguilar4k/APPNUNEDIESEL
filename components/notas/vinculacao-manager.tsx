@@ -23,6 +23,7 @@ import {
   DollarSign,
   Save,
   Copy,
+  Upload,
 } from "lucide-react"
 import { cn } from "@/lib/utils"
 import { toast } from "sonner"
@@ -301,7 +302,12 @@ export function VinculacaoManager({
           </div>
           <p className="mt-2 text-sm text-muted-foreground text-pretty">{subtitulo}</p>
         </div>
-        <StepIndicator etapa={etapa} onVoltar={pendentes.length > 0 ? () => setEtapa("vincular") : undefined} />
+        <StepIndicator
+          etapa={etapa}
+          voltarHref={voltarHref}
+          reconhecimento={reconhecimento}
+          onVoltarVincular={pendentes.length > 0 ? () => setEtapa("vincular") : undefined}
+        />
       </div>
 
       {etapa === "conferencia" && (
@@ -349,33 +355,47 @@ export function VinculacaoManager({
   )
 }
 
-function StepIndicator({ etapa, onVoltar }: { etapa: Etapa; onVoltar?: () => void }) {
+function StepIndicator({
+  etapa,
+  voltarHref,
+  reconhecimento,
+  onVoltarVincular,
+}: {
+  etapa: Etapa
+  voltarHref: string
+  reconhecimento: boolean
+  onVoltarVincular?: () => void
+}) {
   const vincularAtiva = etapa === "vincular"
   const revisaoAtiva = etapa === "conferencia"
+
+  const base = "flex items-center gap-1.5 rounded-lg border px-3.5 py-2 font-semibold transition-colors"
+  const ativo = "border-primary bg-primary text-primary-foreground"
+  const inativoClicavel = "border-border bg-card text-foreground hover:bg-accent"
+  const inativo = "border-border bg-card text-muted-foreground"
+
   return (
-    <div className="flex shrink-0 items-center gap-2 text-sm">
+    <div className="flex shrink-0 flex-wrap items-center gap-2 text-sm">
+      {/* Etapa 1: Abertura (sempre concluída — volta para a lista de importação) */}
+      <Link href={voltarHref} className={cn(base, inativoClicavel)}>
+        <Upload className="h-4 w-4" /> 1. {reconhecimento ? "Reconhecimento" : "Abertura"}
+      </Link>
+      <div className="h-px w-3 bg-border" />
+
+      {/* Etapa 2: Vincular */}
       <button
         type="button"
-        onClick={revisaoAtiva ? onVoltar : undefined}
-        disabled={!revisaoAtiva || !onVoltar}
-        className={cn(
-          "flex items-center gap-1.5 rounded-lg border px-3.5 py-2 font-semibold transition-colors",
-          vincularAtiva
-            ? "border-primary bg-primary text-primary-foreground"
-            : "border-border bg-card text-foreground",
-          revisaoAtiva && onVoltar && "hover:bg-accent",
-        )}
+        onClick={revisaoAtiva ? onVoltarVincular : undefined}
+        disabled={!revisaoAtiva || !onVoltarVincular}
+        className={cn(base, vincularAtiva ? ativo : revisaoAtiva && onVoltarVincular ? inativoClicavel : inativo)}
       >
-        <Link2 className="h-4 w-4" /> 1. Vincular
+        <Link2 className="h-4 w-4" /> 2. Vincular
       </button>
-      <div className="h-px w-4 bg-border" />
-      <span
-        className={cn(
-          "flex items-center gap-1.5 rounded-lg border px-3.5 py-2 font-semibold",
-          revisaoAtiva ? "border-primary bg-primary text-primary-foreground" : "border-border bg-card text-muted-foreground",
-        )}
-      >
-        <CheckCircle2 className="h-4 w-4" /> 2. Revisão
+      <div className="h-px w-3 bg-border" />
+
+      {/* Etapa 3: Revisão */}
+      <span className={cn(base, revisaoAtiva ? ativo : inativo)}>
+        <CheckCircle2 className="h-4 w-4" /> 3. Revisão
       </span>
     </div>
   )

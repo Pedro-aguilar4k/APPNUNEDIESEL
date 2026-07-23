@@ -16,7 +16,6 @@ import {
   CheckCircle2,
   PieChart,
   Building2,
-  X,
 } from "lucide-react"
 import { useRouter } from "next/navigation"
 import { toast } from "sonner"
@@ -91,12 +90,12 @@ const TEXTOS: Record<
   importacao: {
     origem: "xml",
     vincularBase: "/importar",
-    dropTitulo: "Arraste e solte os arquivos XML aqui",
-    dropSub: "ou selecione os arquivos da NF-e para importar",
+    dropTitulo: "Arraste e solte o arquivo XML aqui",
+    dropSub: "ou selecione o arquivo da NF-e para importar",
     listaTitulo: "Notas importadas",
     vazio: "Nenhuma nota importada ainda.",
     acaoVincular: "Vincular",
-    dica: "Você pode importar múltiplos arquivos XML de uma vez.",
+    dica: "Importe o XML da NF-e para iniciar a conferência automaticamente.",
   },
   reconhecimento: {
     origem: "reconhecimento",
@@ -117,7 +116,6 @@ export function ImportManager({ modo = "importacao" }: { modo?: Modo }) {
   const [status, setStatus] = useState("todos")
   const [uploading, setUploading] = useState(false)
   const [dragOver, setDragOver] = useState(false)
-  const [selecionados, setSelecionados] = useState<{ count: number; tamanhoMB: number } | null>(null)
   const inputRef = useRef<HTMLInputElement>(null)
 
   const {
@@ -141,9 +139,8 @@ export function ImportManager({ modo = "importacao" }: { modo?: Modo }) {
   const handleFiles = useCallback(
     async (files: FileList | null) => {
       if (!files || files.length === 0) return
-      const fileArray = Array.from(files)
-      const tamanhoMB = fileArray.reduce((acc, f) => acc + f.size, 0) / (1024 * 1024)
-      setSelecionados({ count: fileArray.length, tamanhoMB })
+      // Importa apenas um arquivo por vez.
+      const fileArray = [files[0]]
       setUploading(true)
       let dup = 0
       const importadas: { notaId: number }[] = []
@@ -222,15 +219,14 @@ export function ImportManager({ modo = "importacao" }: { modo?: Modo }) {
             ref={inputRef}
             type="file"
             accept=".xml,text/xml,application/xml"
-            multiple
             className="hidden"
             onChange={(e) => handleFiles(e.target.files)}
           />
           <Button type="button" onClick={() => inputRef.current?.click()} disabled={uploading} className="gap-2">
             <FileText className="h-4 w-4" />
-            Selecionar arquivos XML
+            Selecionar arquivo XML
           </Button>
-          <p className="text-xs text-muted-foreground">Formatos aceitos: .xml · Tamanho máximo: 50MB por arquivo</p>
+          <p className="text-xs text-muted-foreground">Formatos aceitos: .xml · Tamanho máximo: 50MB</p>
         </Card>
 
         {/* Dica + estatísticas */}
@@ -243,32 +239,6 @@ export function ImportManager({ modo = "importacao" }: { modo?: Modo }) {
               <p className="text-sm font-bold text-foreground">Dica</p>
               <p className="mt-0.5 text-sm leading-relaxed text-muted-foreground text-pretty">{t.dica}</p>
             </div>
-          </Card>
-
-          <Card className="flex items-center gap-3 p-4">
-            <span className="flex h-11 w-11 shrink-0 items-center justify-center rounded-lg bg-primary/10 text-primary">
-              <FileText className="h-6 w-6" />
-            </span>
-            <div className="min-w-0 flex-1">
-              <p className="flex items-baseline gap-1.5 leading-none">
-                <span className="text-2xl font-extrabold tabular-nums text-foreground">{selecionados?.count ?? 0}</span>
-                <span className="text-sm text-muted-foreground">Arquivo(s) selecionado(s)</span>
-              </p>
-              <p className="mt-1 text-xs text-muted-foreground">
-                {selecionados ? `${selecionados.tamanhoMB.toFixed(1)} MB` : "Nenhum arquivo escolhido"}
-              </p>
-            </div>
-            {selecionados && (
-              <Button
-                variant="ghost"
-                size="sm"
-                onClick={() => setSelecionados(null)}
-                className="h-8 gap-1 text-primary hover:text-primary"
-              >
-                <X className="h-3.5 w-3.5" />
-                Limpar
-              </Button>
-            )}
           </Card>
 
           <Card className="flex items-center gap-3 p-4">
