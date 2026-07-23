@@ -256,9 +256,8 @@ export function ConferenciaScanner({ initial, canBind }: { initial: ConferenciaD
     }
     if (res.notaCompleta && res.success) {
       toast.success("Todos os itens foram conferidos!")
-    } else if (!res.success) {
-      toast.error(res.message)
     }
+    // Falhas de leitura são exibidas no aviso inline (banner + barra), sem toast.
   }
 
   // Drena a fila de leituras uma a uma, sem bloquear novas bipagens.
