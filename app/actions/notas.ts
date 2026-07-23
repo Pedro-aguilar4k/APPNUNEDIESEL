@@ -1,7 +1,7 @@
 "use server"
 
 import { db } from "@/lib/db"
-import { notas, itensNota, fornecedores, user } from "@/lib/db/schema"
+import { notas, itensNota, fornecedores, user, relatoriosConferencia } from "@/lib/db/schema"
 import { and, desc, eq, ilike, or, sql } from "drizzle-orm"
 import { requirePermission, requireActor } from "@/lib/guards"
 import { registrarLog } from "@/lib/logs"
@@ -173,6 +173,7 @@ export async function listNotas(params?: {
   search?: string
   status?: string
   origem?: "xml" | "reconhecimento"
+  ocultarComRelatorio?: boolean
 }): Promise<NotaListItem[]> {
   await requirePermission("gerenciar_notas")
   const search = params?.search?.trim()
@@ -206,6 +207,14 @@ export async function listNotas(params?: {
   conditions.push(
     sql`NOT (${notas.status} IN ('conferida', 'divergente') AND ${notas.conferidaEm} IS NOT NULL AND ${notas.conferidaEm} < now() - interval '24 hours')`,
   )
+
+  // Na aba de Conferência, uma nota some assim que um relatório é gerado
+  // (a conferência foi concluída e documentada; segue disponível em Relatórios).
+  if (params?.ocultarComRelatorio) {
+    conditions.push(
+      sql`NOT EXISTS (select 1 from ${relatoriosConferencia} where ${relatoriosConferencia.notaId} = ${notas.id})`,
+    )
+  }
 
   return db
     .select({
