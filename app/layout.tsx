@@ -17,8 +17,8 @@ const jetbrainsMono = JetBrains_Mono({
 })
 
 export const metadata: Metadata = {
-  title: "NuneDiesel | Conferência de NF-e",
-  description: "NuneDiesel Autopeças — Conferência de notas fiscais, vinculação de produtos e controle de entrada de linha pesada",
+  title: "NuneDiesel | Gestão operacional integrada",
+  description: "NuneDiesel Autopeças — estoque, documentos, equipe, garantias e produtividade em uma operação integrada",
   generator: "v0.app",
 }
 
