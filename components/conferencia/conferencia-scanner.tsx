@@ -139,6 +139,9 @@ export function ConferenciaScanner({ initial, canBind }: { initial: ConferenciaD
   )
   // Modo conferência: visor em tela cheia para bipar sem distração.
   const [modoConferencia, setModoConferencia] = useState(false)
+  // Overlay de celebração exibido quando o último item é conferido.
+  const [celebrar, setCelebrar] = useState(false)
+  const jaCelebrouRef = useRef(false)
   const inputRef = useRef<HTMLInputElement>(null)
 
   // Refs para acessar o estado mais recente dentro do loop da fila.
@@ -195,6 +198,18 @@ export function ConferenciaScanner({ initial, canBind }: { initial: ConferenciaD
   }, [modoConferencia, focusInput])
 
   const pct = progress.totalItens > 0 ? Math.round((progress.itensCompletos / progress.totalItens) * 100) : 0
+  // Todos os itens conferidos: libera o botão verde e o efeito de celebração.
+  const tudoConferido = progress.totalItens > 0 && progress.itensCompletos >= progress.totalItens
+
+  useEffect(() => {
+    if (tudoConferido && !jaCelebrouRef.current) {
+      jaCelebrouRef.current = true
+      setCelebrar(true)
+      const t = setTimeout(() => setCelebrar(false), 3200)
+      return () => clearTimeout(t)
+    }
+    if (!tudoConferido) jaCelebrouRef.current = false
+  }, [tudoConferido])
   const semVinculo = useMemo(() => itens.filter((i) => !i.produtoId), [itens])
   const activeItem = useMemo(() => itens.find((i) => i.id === activeId) ?? null, [itens, activeId])
 
@@ -528,6 +543,29 @@ export function ConferenciaScanner({ initial, canBind }: { initial: ConferenciaD
 
   return (
     <div className="flex flex-col gap-5 pb-32">
+      {/* Efeito de conclusão: overlay que aparece quando todos os itens são conferidos */}
+      {celebrar && (
+        <div
+          className="fixed inset-0 z-50 flex items-center justify-center bg-foreground/40 backdrop-blur-sm duration-300 animate-in fade-in"
+          role="alertdialog"
+          aria-label="Conferência concluída"
+          onClick={() => setCelebrar(false)}
+        >
+          <div className="mx-4 flex flex-col items-center gap-4 rounded-3xl border-2 border-success bg-card px-10 py-9 text-center shadow-2xl duration-500 animate-in zoom-in-95 slide-in-from-bottom-2">
+            <span className="flex h-20 w-20 items-center justify-center rounded-full bg-success/15 ring-8 ring-success/10">
+              <PackageCheck className="h-11 w-11 text-success" />
+            </span>
+            <div>
+              <p className="text-2xl font-extrabold text-foreground text-balance">Conferência concluída!</p>
+              <p className="mt-1 text-sm font-medium text-muted-foreground text-pretty">
+                Todos os {progress.totalItens} itens foram conferidos. Clique em{" "}
+                <span className="font-bold text-success">Finalizar conferência</span> para encerrar.
+              </p>
+            </div>
+          </div>
+        </div>
+      )}
+
       {/* Cabeçalho: marca + título + indicadores + encerrar */}
       <header className="flex flex-col gap-5">
         <div className="flex flex-col gap-4 xl:flex-row xl:items-start xl:justify-between">
@@ -571,11 +609,15 @@ export function ConferenciaScanner({ initial, canBind }: { initial: ConferenciaD
             />
             <Button
               onClick={handleFinalizar}
-              variant="outline"
-              className="h-auto gap-2 self-stretch bg-transparent px-5"
+              variant={tudoConferido ? "default" : "outline"}
+              className={
+                tudoConferido
+                  ? "h-auto gap-2 self-stretch bg-success px-5 text-success-foreground shadow-md transition-all hover:bg-success/90 animate-in fade-in zoom-in-95"
+                  : "h-auto gap-2 self-stretch bg-transparent px-5"
+              }
             >
-              <LogOut className="h-4 w-4" />
-              Encerrar conferência
+              {tudoConferido ? <CheckCircle2 className="h-4 w-4" /> : <LogOut className="h-4 w-4" />}
+              {tudoConferido ? "Finalizar conferência" : "Encerrar conferência"}
             </Button>
           </div>
         </div>
