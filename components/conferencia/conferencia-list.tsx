@@ -26,7 +26,9 @@ function fmtDate(d: Date | string | null) {
 export function ConferenciaList() {
   const [search, setSearch] = useState("")
   const [status, setStatus] = useState("todos")
-  const { data, isLoading } = useSWR(["conf-notas", search, status], () => listNotas({ search, status }))
+  const { data, isLoading } = useSWR(["conf-notas", search, status], () =>
+    listNotas({ search, status, ocultarComRelatorio: true }),
+  )
 
   return (
     <div className="flex flex-col gap-4">

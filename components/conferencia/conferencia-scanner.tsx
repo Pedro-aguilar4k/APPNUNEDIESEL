@@ -365,6 +365,9 @@ export function ConferenciaScanner({ initial, canBind }: { initial: ConferenciaD
     if (res.ok) {
       toast.success(res.status === "conferida" ? "Nota conferida com sucesso!" : "Nota finalizada com divergências.")
       setStatus(res.status)
+      // Sai do modo tela cheia automaticamente e vai para a etapa de relatório.
+      setCelebrar(false)
+      setModoConferencia(false)
       setFinalizado(true)
     }
   }
