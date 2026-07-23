@@ -392,154 +392,304 @@ export function ConferenciaScanner({ initial, canBind }: { initial: ConferenciaD
   const fb = last ? FEEDBACK[last.tipo] : null
   const FbIcon = fb?.icon
 
-  // Visor de bipagem — usado apenas no modo tela cheia.
-  const visor = (
-    <div
-      className={`flex min-h-64 flex-1 flex-col items-center justify-center gap-4 rounded-xl border-2 p-4 text-center transition-colors sm:p-6 ${
-        fb ? fb.color : "border-dashed border-border text-muted-foreground"
-      }`}
-      aria-live="polite"
-    >
-      {last && FbIcon ? (
-        <div className="flex w-full flex-col items-center gap-3">
-          <div className="flex items-center gap-3">
-            <FbIcon className="h-10 w-10 shrink-0 sm:h-12 sm:w-12" />
-            <p className="text-xl font-extrabold leading-tight text-balance sm:text-2xl">{last.message}</p>
-          </div>
+  const codigoInterno = currentItem?.produtoCodigo?.trim() ? currentItem.produtoCodigo : "—"
 
-          <div className="flex flex-wrap items-center justify-center gap-2 empty:hidden">
-            {last.item?.devolucao && (
-              <span className="inline-flex items-center gap-1.5 rounded-lg bg-destructive px-3 py-1.5 text-base font-bold uppercase tracking-wide text-destructive-foreground">
-                <RotateCcw className="h-5 w-5" />
-                Devolução
-              </span>
-            )}
-            {last.item?.compradorNome && (
-              <span className="inline-flex items-center gap-1.5 rounded-lg bg-primary px-3 py-1.5 text-base font-semibold text-primary-foreground">
-                <Truck className="h-5 w-5" />
-                Entregar para {last.item.compradorNome}
-              </span>
-            )}
-          </div>
+  // Aviso dinâmico da última leitura (compartilhado entre tela normal e tela cheia).
+  const avisoDinamico =
+    last && fb && FbIcon ? (
+      <div
+        role="status"
+        aria-live="assertive"
+        className={`flex items-center gap-4 rounded-2xl border-2 px-5 py-4 shadow-sm duration-300 animate-in fade-in slide-in-from-top-2 ${fb.color}`}
+      >
+        <span className="flex h-12 w-12 shrink-0 items-center justify-center rounded-xl bg-background/60">
+          <FbIcon className="h-7 w-7" />
+        </span>
+        <div className="min-w-0 flex-1">
+          <p className="text-lg font-extrabold leading-tight text-balance sm:text-xl">{TITULOS[last.tipo]}</p>
+          <p className="text-sm font-medium leading-snug opacity-80 text-pretty">{last.message}</p>
+        </div>
+        {last.item && last.item.quantidade > 0 && (
+          <span className="hidden shrink-0 items-center gap-1 rounded-xl border-2 border-current px-4 py-2 font-mono text-2xl font-extrabold sm:inline-flex">
+            {last.item.quantidadeConferida}
+            <span className="text-base font-bold opacity-60">/{last.item.quantidade}</span>
+          </span>
+        )}
+      </div>
+    ) : null
 
-          {last.item && (
-            <div className="w-full max-w-2xl overflow-hidden rounded-xl border border-border bg-card text-foreground shadow-sm">
-              <p className="border-b border-border px-5 py-3.5 text-center text-lg font-bold leading-snug text-balance sm:text-xl">
-                {last.item.produtoDescricao ?? last.item.descricaoNfe ?? "Sem descrição"}
-              </p>
-
-              <div className="px-5 pb-2 pt-4 text-center">
-                <span className="block text-xs font-semibold uppercase tracking-widest text-muted-foreground">
-                  Código interno
-                </span>
-                <span className="block break-all font-mono text-5xl font-extrabold leading-tight tracking-tight text-foreground sm:text-6xl">
-                  {last.item.produtoCodigo?.trim() ? last.item.produtoCodigo : "—"}
-                </span>
-              </div>
-
-              <div className="mx-5 mb-4 mt-2 rounded-xl bg-muted px-4 py-3 text-center">
-                <span className="block text-xs font-semibold uppercase tracking-widest text-muted-foreground">
-                  Conferido
-                </span>
-                <span className="block text-4xl font-extrabold tabular-nums leading-none text-foreground">
-                  {last.item.quantidadeConferida}
-                  <span className="text-2xl text-muted-foreground">/{last.item.quantidade}</span>
-                  {last.item.unidade && (
-                    <span className="ml-2 text-base font-semibold uppercase text-muted-foreground">
-                      {last.item.unidade}
-                    </span>
-                  )}
-                </span>
-              </div>
-
-              <dl className="grid grid-cols-1 gap-3 border-t border-border p-4 sm:grid-cols-2">
-                <FichaCampo label="Código original" valor={last.item.cprod} />
-                <FichaCampo label="EAN" valor={last.item.ean} />
-              </dl>
-            </div>
-          )}
-
-          {last.scanned?.descricao && last.tipo === "produto_errado" && (
-            <p className="text-sm opacity-70 text-balance">Você bipou: {last.scanned.descricao}</p>
+  // Card principal: produto (esquerda) + quantidade (direita). Compartilhado entre os dois modos.
+  const cardPrincipal = (
+    <div className="grid grid-cols-1 gap-5 lg:grid-cols-[1.55fr_1fr]">
+      {/* Produto */}
+      <Card className="flex flex-col gap-6 p-6 sm:p-7">
+        <div className="flex items-center justify-between gap-3">
+          <span className="inline-flex items-center gap-2 rounded-lg bg-success/10 px-3 py-1.5 text-xs font-bold uppercase tracking-wide text-success">
+            <Package className="h-4 w-4" />
+            {currentItem ? `Item ${currentIndex + 1} de ${itens.length}` : `${itens.length} itens`}
+          </span>
+          {currentItem && skippedIds.has(currentItem.id) && (
+            <span className="inline-flex items-center gap-1.5 rounded-lg bg-warning/10 px-3 py-1.5 text-xs font-bold uppercase tracking-wide text-warning">
+              <FastForward className="h-3.5 w-3.5" />
+              Pulado
+            </span>
           )}
         </div>
-      ) : (
-        <>
-          <ScanLine className="h-16 w-16" />
-          <p className="text-xl font-semibold text-balance sm:text-2xl">Bipe o código de barras do produto</p>
-          <p className="text-sm text-muted-foreground text-balance">
-            Aponte o leitor para o código da peça — o resultado aparece aqui em destaque.
+
+        {currentItem ? (
+          <>
+            <div className="flex flex-wrap items-center gap-2 empty:hidden">
+              {currentItem.devolucao && (
+                <span className="inline-flex items-center gap-1.5 rounded-lg bg-destructive px-3 py-1.5 text-sm font-bold uppercase tracking-wide text-destructive-foreground">
+                  <RotateCcw className="h-4 w-4" />
+                  Devolução
+                </span>
+              )}
+              {currentItem.compradorNome && (
+                <span className="inline-flex items-center gap-1.5 rounded-lg bg-primary px-3 py-1.5 text-sm font-semibold text-primary-foreground">
+                  <Truck className="h-4 w-4" />
+                  Entregar para {currentItem.compradorNome}
+                </span>
+              )}
+            </div>
+
+            <div>
+              <p className="text-xs font-semibold uppercase tracking-widest text-muted-foreground">
+                Código interno
+              </p>
+              <p className="break-all font-mono text-6xl font-extrabold leading-none tracking-tight text-success sm:text-7xl">
+                {codigoInterno}
+              </p>
+            </div>
+
+            <div>
+              <p className="text-xs font-semibold uppercase tracking-widest text-muted-foreground">Descrição</p>
+              <p className="mt-1 text-2xl font-bold leading-snug text-foreground text-balance sm:text-3xl">
+                {currentItem.produtoDescricao ?? currentItem.descricaoNfe ?? "Sem descrição"}
+              </p>
+            </div>
+
+            <div>
+              <p className="text-xs font-semibold uppercase tracking-widest text-muted-foreground">
+                Código original (nota)
+              </p>
+              <div className="mt-1.5 inline-flex rounded-lg border border-border bg-muted/50 px-4 py-2.5">
+                <span className="font-mono text-xl font-bold text-foreground">
+                  {currentItem.cprod?.trim() ? currentItem.cprod : "—"}
+                </span>
+              </div>
+            </div>
+
+            <div className="grid grid-cols-1 gap-3 rounded-xl border border-border bg-muted/30 p-4 sm:grid-cols-2">
+              <FichaCampo label="NCM" valor={currentItem.ncm} icon={FileText} />
+              <FichaCampo label="EAN (GTIN)" valor={currentItem.ean} icon={Barcode} />
+            </div>
+          </>
+        ) : (
+          <div className="flex flex-1 flex-col items-center justify-center gap-3 py-10 text-center text-muted-foreground">
+            <PackageCheck className="h-12 w-12 text-success" />
+            <p className="text-lg font-semibold text-foreground">Todos os itens conferidos</p>
+            <p className="text-sm">Encerre a conferência para gerar o relatório.</p>
+          </div>
+        )}
+      </Card>
+
+      {/* Quantidade */}
+      <Card className="flex flex-col gap-5 p-6 sm:p-7">
+        <div>
+          <p className="text-xs font-semibold uppercase tracking-widest text-muted-foreground">Quantidade da nota</p>
+          <p className="mt-1 flex items-end gap-2 leading-none">
+            <span className="font-mono text-6xl font-extrabold tabular-nums tracking-tight text-primary sm:text-7xl">
+              {currentItem ? currentItem.quantidade : "—"}
+            </span>
+            {currentItem && (
+              <span className="mb-1 text-2xl font-semibold uppercase text-muted-foreground">
+                {currentItem.unidade ?? "UN"}
+              </span>
+            )}
           </p>
-        </>
-      )}
+        </div>
+
+        <div>
+          <p className="text-xs font-semibold uppercase tracking-widest text-muted-foreground">Conferido</p>
+          <div className="mt-1.5 flex items-center justify-center rounded-xl border-2 border-success bg-success/5 px-4 py-5 transition-all duration-200">
+            <span className="flex items-end gap-2 leading-none">
+              <span className="font-mono text-5xl font-extrabold tabular-nums text-success">
+                {currentItem ? currentItem.quantidadeConferida : 0}
+              </span>
+              <span className="mb-0.5 text-xl font-semibold uppercase text-success/70">
+                {currentItem?.unidade ?? "UN"}
+              </span>
+            </span>
+          </div>
+        </div>
+
+        <div className="flex flex-col gap-2">
+          <Button
+            onClick={handlePularItem}
+            variant="outline"
+            disabled={!currentItem}
+            className="h-14 gap-2 border-warning/60 bg-transparent text-base font-bold text-warning hover:bg-warning/10 hover:text-warning"
+          >
+            <FastForward className="h-5 w-5" />
+            Pular este item
+          </Button>
+          <p className="text-center text-sm leading-relaxed text-muted-foreground">
+            Não encontrei todas as unidades agora.
+            <br />
+            Posso conferir depois.
+          </p>
+        </div>
+
+        {/* Bipar código inline para itens sem EAN cadastrado */}
+        {currentItem?.produtoId &&
+          !currentItem.ean &&
+          currentItem.quantidadeConferida < currentItem.quantidade && (
+            <div className="rounded-lg border border-dashed border-border bg-muted/20 p-3">
+              <p className="mb-2 text-xs font-medium text-muted-foreground">
+                Este item não tem EAN. Bipe um código para cadastrá-lo:
+              </p>
+              <BipCodigoInline onSubmit={(v) => handleAddCodeToItem(currentItem.id, v)} />
+            </div>
+          )}
+      </Card>
     </div>
   )
 
-  // Formulário de bipagem simples (modo tela cheia).
-  const scanForm = (
-    <form onSubmit={handleScan} className="flex gap-2">
-      <Input
-        ref={inputRef}
-        value={codigo}
-        onChange={(e) => setCodigo(e.target.value)}
-        onKeyDown={(e) => {
-          if (e.key === "Enter" && (e.nativeEvent.isComposing || e.keyCode === 229)) e.preventDefault()
-        }}
-        onBlur={(e) => {
-          const next = e.relatedTarget as HTMLElement | null
-          if (
-            next &&
-            (next.tagName === "INPUT" ||
-              next.tagName === "BUTTON" ||
-              next.closest('[role="dialog"]') ||
-              next.closest('[role="listbox"]'))
-          ) {
-            return
-          }
-          setTimeout(focusInput, 0)
-        }}
-        placeholder="Código de barras..."
-        className="h-12 text-lg"
-        autoComplete="off"
-        inputMode="numeric"
-        autoFocus
-        aria-label="Código de barras"
-      />
-      <Button type="submit" size="lg" disabled={!codigo.trim()} className="h-12 px-6">
-        {busy ? <Loader2 className="h-5 w-5 animate-spin" /> : "Bipar"}
+  // Formulário/barra de bipagem (compartilhado entre os dois modos).
+  const barraBipagemForm = (
+    <form
+      onSubmit={handleScan}
+      className="flex flex-col gap-3 rounded-2xl border border-border bg-card p-3 shadow-lg lg:flex-row lg:items-stretch"
+    >
+      <div
+        className={`flex items-center gap-3 rounded-xl px-4 py-3 transition-colors duration-200 lg:w-72 ${
+          !last
+            ? "bg-primary text-primary-foreground"
+            : last.tipo === "completo"
+              ? "bg-success text-success-foreground"
+              : last.tipo === "produto_errado" || last.tipo === "ja_conferido"
+                ? "bg-warning text-warning-foreground"
+                : last.success
+                  ? "bg-primary text-primary-foreground"
+                  : "bg-destructive text-destructive-foreground"
+        }`}
+      >
+        <span className="flex h-11 w-11 shrink-0 items-center justify-center rounded-lg bg-background/20">
+          {busy ? (
+            <Loader2 className="h-6 w-6 animate-spin" />
+          ) : fb && FbIcon ? (
+            <FbIcon className="h-6 w-6" />
+          ) : (
+            <ScanLine className="h-6 w-6" />
+          )}
+        </span>
+        <div className="min-w-0">
+          <p className="text-sm font-bold leading-tight">{last ? TITULOS[last.tipo] : "Aguardando leitura"}</p>
+          <p className="truncate text-xs opacity-70">
+            {last ? "Pronto para a próxima leitura" : "Posicione o código de barras no leitor ou digite manualmente"}
+          </p>
+        </div>
+      </div>
+
+      <div className="relative flex flex-1 items-center">
+        <Barcode className="pointer-events-none absolute right-4 h-5 w-5 text-muted-foreground" />
+        <Input
+          ref={inputRef}
+          value={codigo}
+          onChange={(e) => setCodigo(e.target.value)}
+          onKeyDown={(e) => {
+            if (e.key === "Enter" && (e.nativeEvent.isComposing || e.keyCode === 229)) e.preventDefault()
+          }}
+          onBlur={(e) => {
+            // Só recupera o foco se ele não foi para outro campo/botão.
+            const next = e.relatedTarget as HTMLElement | null
+            if (
+              next &&
+              (next.tagName === "INPUT" ||
+                next.tagName === "BUTTON" ||
+                next.closest('[role="dialog"]') ||
+                next.closest('[role="listbox"]'))
+            ) {
+              return
+            }
+            setTimeout(focusInput, 0)
+          }}
+          placeholder="Digite ou escaneie o código de barras..."
+          className="h-14 pr-11 text-lg"
+          autoComplete="off"
+          inputMode="numeric"
+          autoFocus
+          aria-label="Código de barras"
+        />
+      </div>
+
+      <Button
+        type="submit"
+        disabled={!codigo.trim() || busy}
+        className="h-14 gap-2 bg-success px-8 text-lg font-bold text-success-foreground hover:bg-success/90"
+      >
+        {busy ? <Loader2 className="h-6 w-6 animate-spin" /> : <Barcode className="h-6 w-6" />}
+        BIPAR
       </Button>
     </form>
   )
 
-  // Modo conferência: tela cheia dedicada à bipagem.
+  // Modo conferência: tela cheia dedicada à bipagem, seguindo o novo layout.
   if (modoConferencia) {
     return (
-      <div className="fixed inset-0 z-50 flex flex-col gap-4 overflow-y-auto bg-background p-4 sm:p-6">
-        <div className="flex flex-wrap items-center justify-between gap-3">
+      <div className="fixed inset-0 z-50 flex flex-col overflow-y-auto bg-background">
+        {/* Cabeçalho fixo */}
+        <header className="sticky top-0 z-10 flex flex-wrap items-center justify-between gap-3 border-b border-border bg-card/95 px-4 py-3 backdrop-blur sm:px-6">
           <div className="min-w-0">
-            <p className="truncate text-base font-bold text-foreground">
-              {initial.nota.numero ? `Nota Nº ${initial.nota.numero}` : `Nota #${initial.nota.id}`}
+            <p className="text-[0.7rem] font-bold uppercase tracking-[0.18em] text-primary">Conferência de NF-e</p>
+            <p className="truncate text-xl font-bold text-foreground">
+              {initial.nota.numero ? `NF-e Nº ${initial.nota.numero}` : `NF-e #${initial.nota.id}`}
             </p>
-            <p className="truncate text-xs text-muted-foreground">{initial.nota.fornecedorNome ?? "Sem fornecedor"}</p>
+            {initial.nota.fornecedorNome ? (
+              <p className="truncate text-xs text-muted-foreground">{initial.nota.fornecedorNome}</p>
+            ) : null}
           </div>
-          <div className="flex items-center gap-3">
-            <span className="text-sm font-semibold tabular-nums text-foreground">
-              {progress.itensCompletos}/{progress.totalItens} itens · {pct}%
-            </span>
-            <Button variant="outline" onClick={toggleModoConferencia} className="gap-1.5 bg-transparent">
-              <Minimize2 className="h-4 w-4" />
-              Sair
+          <div className="flex items-center gap-4">
+            <div className="hidden text-right sm:block">
+              <p className="font-mono text-lg font-extrabold tabular-nums leading-none text-foreground">
+                {progress.itensCompletos}/{progress.totalItens}
+              </p>
+              <p className="text-xs font-semibold text-muted-foreground">itens · {pct}%</p>
+            </div>
+            <Button
+              variant={tudoConferido ? "default" : "outline"}
+              onClick={tudoConferido ? handleFinalizar : toggleModoConferencia}
+              className={
+                tudoConferido
+                  ? "gap-1.5 bg-success text-success-foreground shadow-md hover:bg-success/90"
+                  : "gap-1.5 bg-transparent"
+              }
+            >
+              {tudoConferido ? <CheckCircle2 className="h-4 w-4" /> : <Minimize2 className="h-4 w-4" />}
+              {tudoConferido ? "Finalizar" : "Sair"}
             </Button>
           </div>
+        </header>
+
+        {/* Progresso */}
+        <div className="px-4 pt-4 sm:px-6">
+          <Progress value={pct} className="h-3 [&>*]:bg-success [&>*]:transition-all [&>*]:duration-500" />
         </div>
-        <Progress value={pct} className="h-3" />
-        {visor}
-        {scanForm}
+
+        {/* Conteúdo */}
+        <div className="mx-auto flex w-full max-w-6xl flex-1 flex-col gap-5 px-4 pb-32 pt-5 sm:px-6">
+          {avisoDinamico}
+          {cardPrincipal}
+        </div>
+
+        {/* Barra de bipagem fixa */}
+        <div className="sticky bottom-0 z-10 border-t border-border bg-background/95 px-4 py-3 backdrop-blur sm:px-6">
+          <div className="mx-auto w-full max-w-6xl">{barraBipagemForm}</div>
+        </div>
       </div>
     )
   }
-
-  const codigoInterno = currentItem?.produtoCodigo?.trim() ? currentItem.produtoCodigo : "—"
 
   return (
     <div className="flex flex-col gap-5 pb-32">
@@ -663,163 +813,10 @@ export function ConferenciaScanner({ initial, canBind }: { initial: ConferenciaD
       )}
 
       {/* Aviso dinâmico da última leitura (some sozinho) */}
-      {last && fb && FbIcon && (
-        <div
-          role="status"
-          aria-live="assertive"
-          className={`flex items-center gap-4 rounded-2xl border-2 px-5 py-4 shadow-sm duration-300 animate-in fade-in slide-in-from-top-2 ${fb.color}`}
-        >
-          <span className="flex h-12 w-12 shrink-0 items-center justify-center rounded-xl bg-background/60">
-            <FbIcon className="h-7 w-7" />
-          </span>
-          <div className="min-w-0 flex-1">
-            <p className="text-lg font-extrabold leading-tight text-balance sm:text-xl">{TITULOS[last.tipo]}</p>
-            <p className="text-sm font-medium leading-snug opacity-80 text-pretty">{last.message}</p>
-          </div>
-          {last.item && last.item.quantidade > 0 && (
-            <span className="hidden shrink-0 items-center gap-1 rounded-xl border-2 border-current px-4 py-2 font-mono text-2xl font-extrabold sm:inline-flex">
-              {last.item.quantidadeConferida}
-              <span className="text-base font-bold opacity-60">/{last.item.quantidade}</span>
-            </span>
-          )}
-        </div>
-      )}
+      {avisoDinamico}
 
       {/* Área principal: produto (esquerda) + quantidade (direita) */}
-      <div className="grid grid-cols-1 gap-5 lg:grid-cols-[1.55fr_1fr]">
-        {/* Produto */}
-        <Card className="flex flex-col gap-6 p-6 sm:p-7">
-          <div className="flex items-center justify-between gap-3">
-            <span className="inline-flex items-center gap-2 rounded-lg bg-success/10 px-3 py-1.5 text-xs font-bold uppercase tracking-wide text-success">
-              <Package className="h-4 w-4" />
-              {currentItem ? `Item ${currentIndex + 1} de ${itens.length}` : `${itens.length} itens`}
-            </span>
-            {currentItem && skippedIds.has(currentItem.id) && (
-              <span className="inline-flex items-center gap-1.5 rounded-lg bg-warning/10 px-3 py-1.5 text-xs font-bold uppercase tracking-wide text-warning">
-                <FastForward className="h-3.5 w-3.5" />
-                Pulado
-              </span>
-            )}
-          </div>
-
-          {currentItem ? (
-            <>
-              <div className="flex flex-wrap items-center gap-2 empty:hidden">
-                {currentItem.devolucao && (
-                  <span className="inline-flex items-center gap-1.5 rounded-lg bg-destructive px-3 py-1.5 text-sm font-bold uppercase tracking-wide text-destructive-foreground">
-                    <RotateCcw className="h-4 w-4" />
-                    Devolução
-                  </span>
-                )}
-                {currentItem.compradorNome && (
-                  <span className="inline-flex items-center gap-1.5 rounded-lg bg-primary px-3 py-1.5 text-sm font-semibold text-primary-foreground">
-                    <Truck className="h-4 w-4" />
-                    Entregar para {currentItem.compradorNome}
-                  </span>
-                )}
-              </div>
-
-              <div>
-                <p className="text-xs font-semibold uppercase tracking-widest text-muted-foreground">
-                  Código interno
-                </p>
-                <p className="break-all font-mono text-6xl font-extrabold leading-none tracking-tight text-success sm:text-7xl">
-                  {codigoInterno}
-                </p>
-              </div>
-
-              <div>
-                <p className="text-xs font-semibold uppercase tracking-widest text-muted-foreground">Descrição</p>
-                <p className="mt-1 text-2xl font-bold leading-snug text-foreground text-balance sm:text-3xl">
-                  {currentItem.produtoDescricao ?? currentItem.descricaoNfe ?? "Sem descrição"}
-                </p>
-              </div>
-
-              <div>
-                <p className="text-xs font-semibold uppercase tracking-widest text-muted-foreground">
-                  Código original (nota)
-                </p>
-                <div className="mt-1.5 inline-flex rounded-lg border border-border bg-muted/50 px-4 py-2.5">
-                  <span className="font-mono text-xl font-bold text-foreground">
-                    {currentItem.cprod?.trim() ? currentItem.cprod : "—"}
-                  </span>
-                </div>
-              </div>
-
-              <div className="grid grid-cols-1 gap-3 rounded-xl border border-border bg-muted/30 p-4 sm:grid-cols-2">
-                <FichaCampo label="NCM" valor={currentItem.ncm} icon={FileText} />
-                <FichaCampo label="EAN (GTIN)" valor={currentItem.ean} icon={Barcode} />
-              </div>
-            </>
-          ) : (
-            <div className="flex flex-1 flex-col items-center justify-center gap-3 py-10 text-center text-muted-foreground">
-              <PackageCheck className="h-12 w-12 text-success" />
-              <p className="text-lg font-semibold text-foreground">Todos os itens conferidos</p>
-              <p className="text-sm">Encerre a conferência para gerar o relatório.</p>
-            </div>
-          )}
-        </Card>
-
-        {/* Quantidade */}
-        <Card className="flex flex-col gap-5 p-6 sm:p-7">
-          <div>
-            <p className="text-xs font-semibold uppercase tracking-widest text-muted-foreground">Quantidade da nota</p>
-            <p className="mt-1 flex items-end gap-2 leading-none">
-              <span className="font-mono text-6xl font-extrabold tabular-nums tracking-tight text-primary sm:text-7xl">
-                {currentItem ? currentItem.quantidade : "—"}
-              </span>
-              {currentItem && (
-                <span className="mb-1 text-2xl font-semibold uppercase text-muted-foreground">
-                  {currentItem.unidade ?? "UN"}
-                </span>
-              )}
-            </p>
-          </div>
-
-          <div>
-            <p className="text-xs font-semibold uppercase tracking-widest text-muted-foreground">Conferido</p>
-            <div className="mt-1.5 flex items-center justify-center rounded-xl border-2 border-success bg-success/5 px-4 py-5 transition-all duration-200">
-              <span className="flex items-end gap-2 leading-none">
-                <span className="font-mono text-5xl font-extrabold tabular-nums text-success">
-                  {currentItem ? currentItem.quantidadeConferida : 0}
-                </span>
-                <span className="mb-0.5 text-xl font-semibold uppercase text-success/70">
-                  {currentItem?.unidade ?? "UN"}
-                </span>
-              </span>
-            </div>
-          </div>
-
-          <div className="flex flex-col gap-2">
-            <Button
-              onClick={handlePularItem}
-              variant="outline"
-              disabled={!currentItem}
-              className="h-14 gap-2 border-warning/60 bg-transparent text-base font-bold text-warning hover:bg-warning/10 hover:text-warning"
-            >
-              <FastForward className="h-5 w-5" />
-              Pular este item
-            </Button>
-            <p className="text-center text-sm leading-relaxed text-muted-foreground">
-              Não encontrei todas as unidades agora.
-              <br />
-              Posso conferir depois.
-            </p>
-          </div>
-
-          {/* Bipar código inline para itens sem EAN cadastrado */}
-          {currentItem?.produtoId &&
-            !currentItem.ean &&
-            currentItem.quantidadeConferida < currentItem.quantidade && (
-              <div className="rounded-lg border border-dashed border-border bg-muted/20 p-3">
-                <p className="mb-2 text-xs font-medium text-muted-foreground">
-                  Este item não tem EAN. Bipe um código para cadastrá-lo:
-                </p>
-                <BipCodigoInline onSubmit={(v) => handleAddCodeToItem(currentItem.id, v)} />
-              </div>
-            )}
-        </Card>
-      </div>
+      {cardPrincipal}
 
       {/* Ver todos os itens */}
       <div className="flex justify-end">
@@ -925,81 +922,7 @@ export function ConferenciaScanner({ initial, canBind }: { initial: ConferenciaD
 
       {/* Barra de bipagem fixa */}
       <div className="sticky bottom-3 z-30 mt-1">
-        <form
-          onSubmit={handleScan}
-          className="flex flex-col gap-3 rounded-2xl border border-border bg-card p-3 shadow-lg lg:flex-row lg:items-stretch"
-        >
-          <div
-            className={`flex items-center gap-3 rounded-xl px-4 py-3 transition-colors duration-200 lg:w-72 ${
-              !last
-                ? "bg-primary text-primary-foreground"
-                : last.tipo === "completo"
-                  ? "bg-success text-success-foreground"
-                  : last.tipo === "produto_errado" || last.tipo === "ja_conferido"
-                    ? "bg-warning text-warning-foreground"
-                    : last.success
-                      ? "bg-primary text-primary-foreground"
-                      : "bg-destructive text-destructive-foreground"
-            }`}
-          >
-            <span className="flex h-11 w-11 shrink-0 items-center justify-center rounded-lg bg-background/20">
-              {busy ? (
-                <Loader2 className="h-6 w-6 animate-spin" />
-              ) : fb && FbIcon ? (
-                <FbIcon className="h-6 w-6" />
-              ) : (
-                <ScanLine className="h-6 w-6" />
-              )}
-            </span>
-            <div className="min-w-0">
-              <p className="text-sm font-bold leading-tight">{last ? TITULOS[last.tipo] : "Aguardando leitura"}</p>
-              <p className="truncate text-xs opacity-70">
-                {last ? "Pronto para a próxima leitura" : "Posicione o código de barras no leitor ou digite manualmente"}
-              </p>
-            </div>
-          </div>
-
-          <div className="relative flex flex-1 items-center">
-            <Barcode className="pointer-events-none absolute right-4 h-5 w-5 text-muted-foreground" />
-            <Input
-              ref={inputRef}
-              value={codigo}
-              onChange={(e) => setCodigo(e.target.value)}
-              onKeyDown={(e) => {
-                if (e.key === "Enter" && (e.nativeEvent.isComposing || e.keyCode === 229)) e.preventDefault()
-              }}
-              onBlur={(e) => {
-                // Só recupera o foco se ele não foi para outro campo/botão.
-                const next = e.relatedTarget as HTMLElement | null
-                if (
-                  next &&
-                  (next.tagName === "INPUT" ||
-                    next.tagName === "BUTTON" ||
-                    next.closest('[role="dialog"]') ||
-                    next.closest('[role="listbox"]'))
-                ) {
-                  return
-                }
-                setTimeout(focusInput, 0)
-              }}
-              placeholder="Digite ou escaneie o código de barras..."
-              className="h-14 pr-11 text-lg"
-              autoComplete="off"
-              inputMode="numeric"
-              autoFocus
-              aria-label="Código de barras"
-            />
-          </div>
-
-          <Button
-            type="submit"
-            disabled={!codigo.trim() || busy}
-            className="h-14 gap-2 bg-success px-8 text-lg font-bold text-success-foreground hover:bg-success/90"
-          >
-            {busy ? <Loader2 className="h-6 w-6 animate-spin" /> : <Barcode className="h-6 w-6" />}
-            BIPAR
-          </Button>
-        </form>
+        {barraBipagemForm}
         <p className="mt-2 flex items-center justify-between gap-3 px-1 text-xs text-muted-foreground">
           <span>Dica: você pode digitar o EAN, GTIN ou código de barras do produto.</span>
           <Button
