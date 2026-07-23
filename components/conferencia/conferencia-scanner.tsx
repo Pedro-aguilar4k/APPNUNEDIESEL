@@ -1,7 +1,6 @@
 "use client"
 
 import { useCallback, useEffect, useMemo, useRef, useState } from "react"
-import Image from "next/image"
 import { toast } from "sonner"
 import {
   ScanLine,
@@ -513,24 +512,14 @@ export function ConferenciaScanner({ initial, canBind }: { initial: ConferenciaD
       {/* Cabeçalho: marca + título + indicadores + encerrar */}
       <header className="flex flex-col gap-5">
         <div className="flex flex-col gap-4 xl:flex-row xl:items-start xl:justify-between">
-          <div className="flex items-start gap-3">
-            <Image
-              src="/nune-logo.png"
-              alt="NuneDiesel"
-              width={52}
-              height={36}
-              className="brand-logo mt-0.5 h-9 w-auto shrink-0 object-contain"
-            />
-            <div>
-              <p className="text-xs font-bold uppercase tracking-[0.18em] text-primary">Operação de entrada</p>
-              <h1 className="text-2xl font-bold tracking-tight text-foreground text-balance sm:text-3xl">
-                Conferência de NF-e
-              </h1>
-              <p className="mt-1 text-sm text-muted-foreground">
-                {initial.nota.numero ? `Nota Nº ${initial.nota.numero}` : `Nota #${initial.nota.id}`}
-                {initial.nota.fornecedorNome ? ` · ${initial.nota.fornecedorNome}` : ""}
-              </p>
-            </div>
+          <div className="flex flex-col">
+            <p className="text-xs font-bold uppercase tracking-[0.18em] text-primary">Conferência de NF-e</p>
+            <h1 className="text-3xl font-bold tracking-tight text-foreground text-balance sm:text-4xl">
+              {initial.nota.numero ? `NF-e Nº ${initial.nota.numero}` : `NF-e #${initial.nota.id}`}
+            </h1>
+            {initial.nota.fornecedorNome ? (
+              <p className="mt-1 text-sm text-muted-foreground">{initial.nota.fornecedorNome}</p>
+            ) : null}
           </div>
 
           <div className="flex flex-wrap items-stretch gap-3">
