@@ -69,10 +69,19 @@ export async function getConferencia(notaId: number) {
     .orderBy(itensNota.id)
 
   const progress = await notaProgress(notaId)
+
+  // Conta itens sem produto vinculado — usados para bloquear acesso à conferência.
+  const [pendRow] = await db
+    .select({ n: sql<number>`count(*)::int` })
+    .from(itensNota)
+    .where(and(eq(itensNota.notaId, notaId), sql`${itensNota.produtoId} is null`))
+  const itensPendentes = pendRow?.n ?? 0
+
   return {
     nota: { ...nota, importadoPor },
     itens: itens.map((r) => gamePayload(r.item, r.produtoDescricao, r.produtoCodigo)),
     progress,
+    itensPendentes,
   }
 }
 

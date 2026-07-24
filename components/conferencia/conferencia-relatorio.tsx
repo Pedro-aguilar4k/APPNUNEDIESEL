@@ -4,6 +4,7 @@ import { useState } from "react"
 import useSWR from "swr"
 import { toast } from "sonner"
 import Link from "next/link"
+import { useRouter } from "next/navigation"
 import { ArrowLeft, CheckCircle2, AlertTriangle, FileText, Printer, Download, Loader2, ClipboardList } from "lucide-react"
 import { Card } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
@@ -29,15 +30,17 @@ type Props = {
   nota: { id: number; numero: string | null; fornecedorNome: string | null }
   itens: ItemPayload[]
   status: "conferida" | "divergente"
+  estoquistaNome?: string
 }
 
 function isOk(i: ItemPayload) {
   return i.quantidadeConferida >= i.quantidade && i.quantidade > 0
 }
 
-export function ConferenciaRelatorio({ nota, itens, status }: Props) {
-  const [estoquista, setEstoquista] = useState("")
+export function ConferenciaRelatorio({ nota, itens, status, estoquistaNome = "" }: Props) {
+  const [estoquista, setEstoquista] = useState(estoquistaNome)
   const [gerando, setGerando] = useState(false)
+  const router = useRouter()
 
   const { data: relatorios, mutate } = useSWR(["relatorios-nota", nota.id], () => listRelatoriosNota(nota.id))
 
@@ -59,10 +62,11 @@ export function ConferenciaRelatorio({ nota, itens, status }: Props) {
         return
       }
       toast.success("Relatório gerado e salvo.")
-      setEstoquista("")
       await mutate()
       // Abre o PDF de impressão automaticamente (via fetch autenticado).
       await abrirRelatorioPdf(res.id)
+      // Redireciona de volta para a lista de conferência.
+      router.push("/estoque/conferencia")
     } finally {
       setGerando(false)
     }
@@ -172,7 +176,7 @@ export function ConferenciaRelatorio({ nota, itens, status }: Props) {
           </div>
           <Button onClick={handleGerar} disabled={gerando} className="h-10">
             {gerando ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <FileText className="mr-2 h-4 w-4" />}
-            Gerar relatório
+            Gerar relatório e finalizar
           </Button>
         </div>
       </Card>
