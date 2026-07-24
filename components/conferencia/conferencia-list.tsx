@@ -30,8 +30,6 @@ export function ConferenciaList() {
     listNotas({ search, status, ocultarComRelatorio: true }),
   )
 
-  console.log("[v0] conf-notas data:", JSON.stringify(data?.map((n) => ({ id: n.id, pend: n.itensPendentes, tipo: typeof n.itensPendentes }))))
-
   return (
     <div className="flex flex-col gap-4">
       <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
