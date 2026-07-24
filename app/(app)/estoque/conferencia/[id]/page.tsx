@@ -17,5 +17,5 @@ export default async function ConferenciaDetailPage({ params }: { params: Promis
 
   const canManageCadastros = roleHasPermission(user.role, "gerenciar_cadastros")
 
-  return <ConferenciaScanner initial={data} canBind={canManageCadastros} />
+  return <ConferenciaScanner initial={data} canBind={canManageCadastros} estoquistaNome={user.name ?? ""} />
 }

@@ -122,7 +122,15 @@ const TITULOS: Record<LeituraResult["tipo"], string> = {
   ja_conferido: "Este item já foi conferido",
 }
 
-export function ConferenciaScanner({ initial, canBind }: { initial: ConferenciaData; canBind: boolean }) {
+export function ConferenciaScanner({
+  initial,
+  canBind,
+  estoquistaNome = "",
+}: {
+  initial: ConferenciaData
+  canBind: boolean
+  estoquistaNome?: string
+}) {
   const [itens, setItens] = useState<GameItem[]>(initial.itens)
   const [progress, setProgress] = useState(initial.progress)
   const [status, setStatus] = useState(initial.nota.status)
@@ -388,6 +396,7 @@ export function ConferenciaScanner({ initial, canBind }: { initial: ConferenciaD
           statusConferencia: i.statusConferencia,
         }))}
         status={status === "divergente" ? "divergente" : "conferida"}
+        estoquistaNome={estoquistaNome}
       />
     )
   }
@@ -487,6 +496,19 @@ export function ConferenciaScanner({ initial, canBind }: { initial: ConferenciaD
               <FichaCampo label="NCM" valor={currentItem.ncm} icon={FileText} />
               <FichaCampo label="EAN (GTIN)" valor={currentItem.ean} icon={Barcode} />
             </div>
+
+            {/* Cadastrar código de barras: aparece quando o produto ainda não tem EAN */}
+            {currentItem.produtoId && !currentItem.ean && currentItem.quantidadeConferida < currentItem.quantidade && (
+              <div className="rounded-xl border border-dashed border-primary/40 bg-primary/5 p-4">
+                <p className="mb-3 text-sm font-semibold text-foreground">
+                  Produto sem código de barras cadastrado
+                </p>
+                <p className="mb-3 text-xs text-muted-foreground">
+                  Bipe ou digite o código de barras para cadastrá-lo neste produto e já contar esta unidade.
+                </p>
+                <BipCodigoInline onSubmit={(v) => handleAddCodeToItem(currentItem.id, v)} />
+              </div>
+            )}
           </>
         ) : (
           <div className="flex flex-1 flex-col items-center justify-center gap-3 py-10 text-center text-muted-foreground">
@@ -680,9 +702,17 @@ export function ConferenciaScanner({ initial, canBind }: { initial: ConferenciaD
           <Progress value={pct} className="h-3 [&>*]:bg-success [&>*]:transition-all [&>*]:duration-500" />
         </div>
 
+        {/* Aviso dinâmico flutuante — fixed para não deslocar o conteúdo */}
+        {last && fb && FbIcon && (
+          <div className="pointer-events-none fixed inset-x-0 top-20 z-50 flex justify-center px-4 sm:px-6">
+            <div className="w-full max-w-2xl">
+              {avisoDinamico}
+            </div>
+          </div>
+        )}
+
         {/* Conteúdo */}
         <div className="mx-auto flex w-full max-w-6xl flex-1 flex-col gap-5 px-4 pb-32 pt-5 sm:px-6">
-          {avisoDinamico}
           {cardPrincipal}
         </div>
 
