@@ -14,7 +14,7 @@ export type ModuloControle = Omit<typeof modulosControle.$inferSelect, "colunas"
   colunas: ColunaControle[]
   linhas: LinhaControle[]
 }
-export type ModuloInput = { titulo: string; colunas: ColunaControle[]; linhas: LinhaControle[] }
+export type ModuloInput = { titulo: string; descricao?: string | null; colunas: ColunaControle[]; linhas: LinhaControle[] }
 export type ActionResult<T = undefined> = { ok: true; data?: T } | { ok: false; error: string }
 
 function canWrite() {
@@ -65,7 +65,8 @@ function sanitize(input: ModuloInput): ModuloInput | null {
     id: row.id || id("row", rowIndex),
     valores: Object.fromEntries(validColumns.map((column) => [column.id, String(row.valores?.[column.id] ?? "").trim()])),
   }))
-  return { titulo, colunas: validColumns, linhas }
+  const descricao = input.descricao?.trim() || null
+  return { titulo, descricao, colunas: validColumns, linhas }
 }
 
 export async function listModulos(): Promise<ModuloControle[]> {
@@ -101,6 +102,25 @@ export async function updateModulo(idModulo: number, input: ModuloInput): Promis
     return { ok: true, data: { modulo: normalize(row) } }
   } catch (error) {
     return { ok: false, error: error instanceof Error ? error.message : "Erro ao atualizar tabela." }
+  }
+}
+
+export async function updateLinhas(idModulo: number, linhas: LinhaControle[]): Promise<ActionResult<{ modulo: ModuloControle }>> {
+  try {
+    const actor = await canWrite()
+    const [current] = await db.select().from(modulosControle).where(eq(modulosControle.id, idModulo)).limit(1)
+    if (!current) return { ok: false, error: "Tabela não encontrada." }
+    const modulo = normalize(current)
+    const cleanRows = (linhas ?? []).map((row, rowIndex) => ({
+      id: row.id || id("row", rowIndex),
+      valores: Object.fromEntries(modulo.colunas.map((column) => [column.id, String(row.valores?.[column.id] ?? "").trim()])),
+    }))
+    const [row] = await db.update(modulosControle).set({ linhas: cleanRows, updatedAt: new Date() }).where(eq(modulosControle.id, idModulo)).returning()
+    await registrarLog({ actor, area: "controle", acao: "editou", detalhe: `Atualizou os dados da tabela "${modulo.titulo}" (${cleanRows.length} linha${cleanRows.length === 1 ? "" : "s"}).` })
+    revalidatePath("/estoque/controle")
+    return { ok: true, data: { modulo: normalize(row) } }
+  } catch (error) {
+    return { ok: false, error: error instanceof Error ? error.message : "Erro ao salvar os dados." }
   }
 }
 

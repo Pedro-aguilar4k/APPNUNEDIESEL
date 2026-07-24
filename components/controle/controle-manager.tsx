@@ -9,7 +9,7 @@ import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, 
 import { ModuloCard } from "./modulo-card"
 import { ModuloDialog } from "./modulo-dialog"
 import { ModuloSpreadsheet } from "./modulo-spreadsheet"
-import { createModulo, deleteModulo, updateModulo, type LinhaControle, type ModuloControle, type ModuloInput } from "@/app/actions/controle"
+import { createModulo, deleteModulo, updateLinhas, updateModulo, type LinhaControle, type ModuloControle, type ModuloInput } from "@/app/actions/controle"
 
 export function ControleManager({ modulosIniciais, canWrite }: { modulosIniciais: ModuloControle[]; canWrite: boolean }) {
   const [modulos, setModulos] = useState(modulosIniciais)
@@ -34,22 +34,22 @@ export function ControleManager({ modulosIniciais, canWrite }: { modulosIniciais
     })
   }
   async function saveRows(linhas: LinhaControle[]) {
-    if (!active) return false
-    return new Promise<boolean>((resolve) => startTransition(async () => {
-      const result = await updateModulo(active.id, { titulo: active.titulo, colunas: active.colunas, linhas })
-      if (!result.ok || !result.data?.modulo) { toast.error(result.ok ? "Não foi possível salvar." : result.error); resolve(false); return }
-      setModulos((current) => current.map((item) => item.id === active.id ? result.data!.modulo : item)); toast.success("Planilha salva."); resolve(true)
-    }))
+    if (!activeId) return false
+    const result = await updateLinhas(activeId, linhas)
+    if (!result.ok || !result.data?.modulo) { toast.error(result.ok ? "Não foi possível salvar." : result.error); return false }
+    const saved = result.data.modulo
+    setModulos((current) => current.map((item) => item.id === saved.id ? saved : item))
+    return true
   }
   function remove() { if (!toDelete) return; startTransition(async () => { const result = await deleteModulo(toDelete.id); if (!result.ok) { toast.error(result.error); return } setModulos((current) => current.filter((item) => item.id !== toDelete.id)); setActiveId(null); setToDelete(null); toast.success("Tabela removida.") }) }
 
-  if (active) return <><ModuloSpreadsheet modulo={active} canWrite={canWrite} saving={pending} onBack={() => setActiveId(null)} onEditConfig={() => openEdit(active)} onDelete={() => setToDelete(active)} onSave={saveRows} /><ModuloDialog open={dialogOpen} onOpenChange={setDialogOpen} modulo={editing} saving={pending} onSave={handleSave} /><DeleteDialog modulo={toDelete} pending={pending} onClose={() => setToDelete(null)} onConfirm={remove} /></>
+  if (active) return <ModuloSpreadsheet modulo={active} canWrite={canWrite} onBack={() => setActiveId(null)} onSave={saveRows} />
 
   return <div className="flex flex-col gap-6">
     <div className="flex flex-wrap items-center justify-between gap-3"><div className="relative w-full sm:max-w-sm"><Search className="absolute left-3 top-1/2 size-4 -translate-y-1/2 text-muted-foreground" /><Input value={query} onChange={(event) => setQuery(event.target.value)} placeholder="Buscar uma tabela..." className="pl-9" /></div>{canWrite && <Button onClick={openNew}><Plus data-icon="inline-start" />Nova tabela livre</Button>}</div>
-    {filtered.length === 0 ? <div className="flex min-h-96 flex-col items-center justify-center gap-4 rounded-2xl border border-dashed bg-muted/15 p-8 text-center"><span className="flex size-16 items-center justify-center rounded-2xl bg-primary/10 text-primary">{query ? <Search className="size-7" /> : <LayoutGrid className="size-7" />}</span><div><h3 className="text-lg font-semibold">{query ? "Nenhuma tabela encontrada" : "Crie seu primeiro controle"}</h3><p className="mt-1 max-w-md text-sm text-muted-foreground">{query ? "Tente buscar usando outro nome." : "Monte uma planilha personalizada com colunas de texto, número, data e status."}</p></div>{canWrite && !query && <Button onClick={openNew}><Table2 data-icon="inline-start" />Configurar primeira tabela</Button>}</div> : <div className="grid gap-5 md:grid-cols-2 xl:grid-cols-3">{filtered.map((modulo) => <ModuloCard key={modulo.id} modulo={modulo} onOpen={() => setActiveId(modulo.id)} />)}</div>}
+    {filtered.length === 0 ? <div className="flex min-h-96 flex-col items-center justify-center gap-4 rounded-2xl border border-dashed bg-muted/15 p-8 text-center"><span className="flex size-16 items-center justify-center rounded-2xl bg-primary/10 text-primary">{query ? <Search className="size-7" /> : <LayoutGrid className="size-7" />}</span><div><h3 className="text-lg font-semibold">{query ? "Nenhuma tabela encontrada" : "Crie seu primeiro controle"}</h3><p className="mt-1 max-w-md text-sm text-muted-foreground">{query ? "Tente buscar usando outro nome." : "Monte uma planilha personalizada com colunas de texto, número, data e status."}</p></div>{canWrite && !query && <Button onClick={openNew}><Table2 data-icon="inline-start" />Configurar primeira tabela</Button>}</div> : <div className="grid gap-5 md:grid-cols-2 xl:grid-cols-3">{filtered.map((modulo) => <ModuloCard key={modulo.id} modulo={modulo} canWrite={canWrite} onOpen={() => setActiveId(modulo.id)} onEdit={() => openEdit(modulo)} onDelete={() => setToDelete(modulo)} />)}</div>}
     <ModuloDialog open={dialogOpen} onOpenChange={setDialogOpen} modulo={editing} saving={pending} onSave={handleSave} />
-    <AlertDialog open={!!toDelete} onOpenChange={(open) => !open && setToDelete(null)}><AlertDialogContent><AlertDialogHeader><AlertDialogTitle>Excluir tabela</AlertDialogTitle><AlertDialogDescription>Esta ação remove permanentemente a tabela e todos os dados.</AlertDialogDescription></AlertDialogHeader><AlertDialogFooter><AlertDialogCancel>Cancelar</AlertDialogCancel><AlertDialogAction onClick={(event) => { event.preventDefault(); remove() }} className="bg-destructive text-destructive-foreground">Excluir</AlertDialogAction></AlertDialogFooter></AlertDialogContent></AlertDialog>
+    <DeleteDialog modulo={toDelete} pending={pending} onClose={() => setToDelete(null)} onConfirm={remove} />
   </div>
 }
 

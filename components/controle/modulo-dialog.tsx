@@ -4,6 +4,7 @@ import { useEffect, useState } from "react"
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
+import { Textarea } from "@/components/ui/textarea"
 import { Label } from "@/components/ui/label"
 import { Badge } from "@/components/ui/badge"
 import { Select, SelectContent, SelectGroup, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
@@ -24,12 +25,14 @@ export function ModuloDialog({ open, onOpenChange, modulo, saving, onSave }: {
 }) {
   const [step, setStep] = useState(1)
   const [titulo, setTitulo] = useState("")
+  const [descricao, setDescricao] = useState("")
   const [colunas, setColunas] = useState<ColunaControle[]>([])
 
   useEffect(() => {
     if (!open) return
     setStep(modulo ? 2 : 1)
     setTitulo(modulo?.titulo ?? "")
+    setDescricao(modulo?.descricao ?? "")
     setColunas(modulo?.colunas.map((column) => ({ ...column, opcoes: [...(column.opcoes ?? [])] })) ?? [newColumn(0), newColumn(1)])
   }, [open, modulo])
 
@@ -37,7 +40,7 @@ export function ModuloDialog({ open, onOpenChange, modulo, saving, onSave }: {
   function updateColumn(id: string, patch: Partial<ColunaControle>) { setColunas((current) => current.map((column) => column.id === id ? { ...column, ...patch } : column)) }
   function save() {
     const oldRows = modulo?.linhas ?? []
-    onSave({ titulo: titulo.trim(), colunas, linhas: oldRows.map((row) => ({ ...row, valores: Object.fromEntries(colunas.map((column) => [column.id, row.valores[column.id] ?? ""])) })) })
+    onSave({ titulo: titulo.trim(), descricao: descricao.trim() || null, colunas, linhas: oldRows.map((row) => ({ ...row, valores: Object.fromEntries(colunas.map((column) => [column.id, row.valores[column.id] ?? ""])) })) })
   }
 
   return <Dialog open={open} onOpenChange={onOpenChange}>
@@ -56,10 +59,16 @@ export function ModuloDialog({ open, onOpenChange, modulo, saving, onSave }: {
         </div>)}
       </div>
 
-      {step === 1 && <div className="flex min-h-72 flex-col justify-center gap-3 rounded-xl border bg-muted/20 p-6">
-        <Label htmlFor="table-title">Nome da tabela</Label>
-        <Input id="table-title" value={titulo} onChange={(event) => setTitulo(event.target.value)} placeholder="Ex.: Acompanhamento de entregas" autoFocus className="h-11" />
-        <p className="text-sm text-muted-foreground">Use um nome direto para sua equipe encontrar este controle rapidamente.</p>
+      {step === 1 && <div className="flex min-h-72 flex-col justify-center gap-4 rounded-xl border bg-muted/20 p-6">
+        <div className="flex flex-col gap-2">
+          <Label htmlFor="table-title">Nome da tabela</Label>
+          <Input id="table-title" value={titulo} onChange={(event) => setTitulo(event.target.value)} placeholder="Ex.: Acompanhamento de entregas" autoFocus className="h-11" />
+          <p className="text-sm text-muted-foreground">Use um nome direto para sua equipe encontrar este controle rapidamente.</p>
+        </div>
+        <div className="flex flex-col gap-2">
+          <Label htmlFor="table-desc">Descrição <span className="font-normal text-muted-foreground">(opcional)</span></Label>
+          <Textarea id="table-desc" value={descricao} onChange={(event) => setDescricao(event.target.value)} placeholder="Explique para que serve este controle e como preenchê-lo." rows={3} />
+        </div>
       </div>}
 
       {step === 2 && <div className="flex flex-col gap-3">
