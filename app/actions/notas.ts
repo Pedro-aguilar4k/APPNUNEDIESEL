@@ -216,7 +216,7 @@ export async function listNotas(params?: {
     )
   }
 
-  return db
+  const _rows = await db
     .select({
       id: notas.id,
       numero: notas.numero,
