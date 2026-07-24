@@ -13,6 +13,7 @@ import {
   ShieldCheck,
   ShieldPlus,
   PackageSearch,
+  ClipboardCheck,
   ScrollText,
   type LucideIcon,
 } from "lucide-react"
@@ -36,6 +37,7 @@ export const NAV_ITEMS: NavItem[] = [
   { href: "/estoque/espera", label: "Espera", icon: PackageSearch, permission: "conferir", group: "estoque", category: "stock" },
   { href: "/estoque/garantia", label: "Garantia", icon: ShieldCheck, permission: "gerenciar_garantia", group: "estoque", category: "stock" },
   { href: "/estoque/conferencia", label: "Conferência", icon: ScanBarcode, permission: "conferir", group: "estoque", category: "operation" },
+  { href: "/estoque/auditoria", label: "Auditoria", icon: ClipboardCheck, permission: "conferir", group: "estoque", category: "operation" },
   // Vendedor (acesso mínimo): só abre e acompanha as próprias garantias.
   { href: "/garantias", label: "Minhas garantias", icon: ShieldCheck, permission: "abrir_garantia", group: "garantias", category: "warranty" },
   { href: "/garantias/nova", label: "Abrir garantia", icon: ShieldPlus, permission: "abrir_garantia", group: "garantias", category: "warranty" },
