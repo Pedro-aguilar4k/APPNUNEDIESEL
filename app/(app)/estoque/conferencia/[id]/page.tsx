@@ -15,6 +15,12 @@ export default async function ConferenciaDetailPage({ params }: { params: Promis
   const data = await getConferencia(notaId)
   if (!data) notFound()
 
+  // Bloqueia acesso server-side: se ainda há itens sem vínculo, volta para a lista.
+  // Isso impede que o estoquista inicie a conferência mesmo acessando a URL diretamente.
+  if (data.itensPendentes > 0) {
+    redirect(`/estoque/conferencia?aviso=vinculacao_pendente&nota=${notaId}`)
+  }
+
   const canManageCadastros = roleHasPermission(user.role, "gerenciar_cadastros")
 
   return <ConferenciaScanner initial={data} canBind={canManageCadastros} estoquistaNome={user.name ?? ""} />
