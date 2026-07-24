@@ -444,6 +444,99 @@ export const modulosControle = pgTable(
   }),
 )
 
+// ---------------------------------------------------------------------------
+// Auditoria de estoque (balanço). NÃO é um ERP e NUNCA altera o estoque oficial:
+// registra a contagem física, consolida por código (somando localizações) e
+// compara contra um estoque oficial IMPORTADO (Excel/CSV), gerando divergências.
+// Fluxo: conta primeiro, importa o oficial e compara depois, ao finalizar.
+// ---------------------------------------------------------------------------
+
+// Campanha de auditoria (ex.: "Balanço Jan/2026"). Agrupa contagens e a
+// referência importada. Uma auditoria "em_andamento" recebe leituras; ao
+// "finalizada" gera o snapshot de relatório.
+export const auditorias = pgTable(
+  "auditorias",
+  {
+    id: serial("id").primaryKey(),
+    nome: text("nome").notNull(),
+    status: text("status").notNull().default("em_andamento"), // em_andamento | finalizada
+    createdBy: text("created_by"),
+    createdByNome: text("created_by_nome"),
+    createdAt: timestamp("created_at").notNull().defaultNow(),
+    finalizadaEm: timestamp("finalizada_em"),
+  },
+  (t) => ({
+    statusIdx: index("auditorias_status_idx").on(t.status),
+  }),
+)
+
+// Linhas do arquivo oficial importado. Servem APENAS como referência de
+// comparação; nada é devolvido ao sistema oficial. Reimportar substitui tudo.
+export const auditoriaEstoqueOficial = pgTable(
+  "auditoria_estoque_oficial",
+  {
+    id: serial("id").primaryKey(),
+    auditoriaId: integer("auditoria_id")
+      .notNull()
+      .references(() => auditorias.id, { onDelete: "cascade" }),
+    codigo: text("codigo").notNull(),
+    descricao: text("descricao"),
+    quantidadeSistema: numeric("quantidade_sistema").notNull().default("0"),
+    localizacaoPrincipal: text("localizacao_principal"),
+  },
+  (t) => ({
+    auditoriaIdx: index("auditoria_oficial_auditoria_idx").on(t.auditoriaId),
+    codigoIdx: index("auditoria_oficial_codigo_idx").on(t.codigo),
+  }),
+)
+
+// Cada leitura física. A localização segue o padrão da empresa G + Rua + Box
+// (ex.: "G1 R18 BX31A"): guardamos as partes e a string completa. A
+// consolidação (soma por código) é feita na leitura/relatório, nunca gravando
+// registros duplicados por produto.
+export const auditoriaContagens = pgTable(
+  "auditoria_contagens",
+  {
+    id: serial("id").primaryKey(),
+    auditoriaId: integer("auditoria_id")
+      .notNull()
+      .references(() => auditorias.id, { onDelete: "cascade" }),
+    codigo: text("codigo").notNull(),
+    andar: text("andar").notNull(), // G1, G2...
+    rua: text("rua").notNull(), // R18
+    box: text("box").notNull(), // BX31A
+    localizacaoFull: text("localizacao_full").notNull(), // "G1 R18 BX31A"
+    quantidade: numeric("quantidade").notNull().default("0"),
+    observacao: text("observacao"),
+    createdBy: text("created_by"),
+    createdByNome: text("created_by_nome"),
+    createdAt: timestamp("created_at").notNull().defaultNow(),
+  },
+  (t) => ({
+    auditoriaIdx: index("auditoria_contagens_auditoria_idx").on(t.auditoriaId),
+    codigoIdx: index("auditoria_contagens_codigo_idx").on(t.codigo),
+  }),
+)
+
+// Snapshot do relatório gerado ao finalizar. O resumo consolidado fica em JSONB
+// para reconstruir o PDF/planilha sem recalcular.
+export const auditoriaRelatorios = pgTable(
+  "auditoria_relatorios",
+  {
+    id: serial("id").primaryKey(),
+    auditoriaId: integer("auditoria_id")
+      .notNull()
+      .references(() => auditorias.id, { onDelete: "cascade" }),
+    resumoJson: jsonb("resumo_json").notNull(),
+    createdBy: text("created_by"),
+    createdByNome: text("created_by_nome"),
+    createdAt: timestamp("created_at").notNull().defaultNow(),
+  },
+  (t) => ({
+    auditoriaIdx: index("auditoria_relatorios_auditoria_idx").on(t.auditoriaId),
+  }),
+)
+
 // Log de auditoria: uma linha por acao relevante em qualquer aba. Simples e
 // legivel ("quem fez o que, onde e quando") para rastrear responsaveis.
 export const logs = pgTable(

@@ -216,6 +216,11 @@ export async function listNotas(params?: {
     )
   }
 
+  // As subqueries correlacionadas usam nomes de tabela/coluna QUALIFICADOS de
+  // forma literal (ex.: "notas"."id"). O Drizzle renderiza colunas interpoladas
+  // dentro do select sem o prefixo da tabela quando há uma única tabela no FROM,
+  // o que faria `where "nota_id" = "id"` correlacionar com a própria subquery
+  // (itens_nota.id) em vez de notas.id — zerando a contagem.
   return db
     .select({
       id: notas.id,
@@ -227,12 +232,16 @@ export async function listNotas(params?: {
       origem: notas.origem,
       totalItens: notas.totalItens,
       itensConferidos: notas.itensConferidos,
+      // Subqueries correlacionadas: usamos identificadores QUALIFICADOS literais
+      // (ex.: "notas"."id"). Interpolar as colunas do Drizzle aqui geraria
+      // referências sem prefixo de tabela dentro do select, fazendo o
+      // `nota_id = id` correlacionar com a própria subquery e zerar a contagem.
       itensPendentes: sql<number>`(
-        select count(*)::int from ${itensNota}
-        where ${itensNota.notaId} = ${notas.id} and ${itensNota.produtoId} is null
+        select count(*)::int from "itens_nota"
+        where "itens_nota"."nota_id" = "notas"."id" and "itens_nota"."produto_id" is null
       )`,
       importadoPor: sql<string | null>`(
-        select ${user.name} from ${user} where ${user.id} = ${notas.createdBy}
+        select "user"."name" from "user" where "user"."id" = "notas"."created_by"
       )`,
       createdAt: notas.createdAt,
     })

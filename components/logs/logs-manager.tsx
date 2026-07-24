@@ -11,6 +11,7 @@ const AREA_CLASSES: Record<LogArea, string> = {
   importacao: "bg-chart-1/15 text-chart-1 border-chart-1/30",
   reconhecimento: "bg-chart-3/15 text-chart-3 border-chart-3/30",
   conferencia: "bg-chart-2/15 text-chart-2 border-chart-2/30",
+  auditoria: "bg-chart-1/15 text-chart-1 border-chart-1/30",
   controle: "bg-chart-5/15 text-chart-5 border-chart-5/30",
   espera: "bg-chart-3/15 text-chart-3 border-chart-3/30",
   garantias: "bg-chart-4/15 text-chart-4 border-chart-4/30",

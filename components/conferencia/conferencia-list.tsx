@@ -3,7 +3,7 @@
 import { useState } from "react"
 import useSWR from "swr"
 import Link from "next/link"
-import { ScanLine, ArrowRight, User } from "lucide-react"
+import { ScanLine, ArrowRight, User, Link2 } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { Card } from "@/components/ui/card"
 import { Progress } from "@/components/ui/progress"
@@ -60,6 +60,10 @@ export function ConferenciaList() {
             const total = n.totalItens ?? 0
             const done = n.itensConferidos ?? 0
             const pct = total > 0 ? Math.round((done / total) * 100) : 0
+            // A nota só libera a conferência quando todos os itens estão
+            // vinculados a um produto. Enquanto houver pendências de vínculo
+            // (feito em Importar XML), o botão "Conferir" não aparece.
+            const aguardandoVinculacao = n.itensPendentes > 0
             return (
               <Card key={n.id} className="flex flex-col gap-4 p-5">
                 <div className="flex items-start justify-between gap-2">
@@ -88,15 +92,22 @@ export function ConferenciaList() {
                   <Progress value={pct} className="h-2" />
                 </div>
 
-                <div className="flex items-center justify-between">
+                <div className="flex items-center justify-between gap-2">
                   <span className="text-xs text-muted-foreground">Emissão {fmtDate(n.dataEmissao)}</span>
-                  <Button asChild size="sm">
-                    <Link href={`/estoque/conferencia/${n.id}`}>
-                      <ScanLine className="mr-1.5 h-4 w-4" />
-                      Conferir
-                      <ArrowRight className="ml-1.5 h-4 w-4" />
-                    </Link>
-                  </Button>
+                  {aguardandoVinculacao ? (
+                    <span className="inline-flex items-center gap-1.5 rounded-lg border border-amber-500/30 bg-amber-500/10 px-3 py-1.5 text-xs font-medium text-amber-600 dark:text-amber-500">
+                      <Link2 className="h-3.5 w-3.5" />
+                      {n.itensPendentes} item(ns) a vincular
+                    </span>
+                  ) : (
+                    <Button asChild size="sm">
+                      <Link href={`/estoque/conferencia/${n.id}`}>
+                        <ScanLine className="mr-1.5 h-4 w-4" />
+                        Conferir
+                        <ArrowRight className="ml-1.5 h-4 w-4" />
+                      </Link>
+                    </Button>
+                  )}
                 </div>
               </Card>
             )
