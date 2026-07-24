@@ -430,6 +430,7 @@ export const modulosControle = pgTable(
   {
     id: serial("id").primaryKey(),
     titulo: text("titulo").notNull(),
+    descricao: text("descricao"),
     colunas: jsonb("colunas").notNull().$type<ControleColuna[]>(),
     linhas: jsonb("linhas").notNull().$type<ControleLinha[]>(),
     ordem: integer("ordem").notNull().default(0),
