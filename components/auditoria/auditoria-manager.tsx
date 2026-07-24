@@ -33,7 +33,8 @@ export function AuditoriaManager({ auditoriasIniciais }: { auditoriasIniciais: A
       setDialogOpen(false)
       setNome("")
       toast.success("Auditoria criada.")
-      setActiveId(result.data.id)
+      setAuditorias((current) => [result.data.auditoria, ...current])
+      setActiveId(result.data.auditoria.id)
     })
   }
 

@@ -48,8 +48,10 @@ export function AuditoriaImportacao({
 
   async function lerArquivo(file: File) {
     try {
-      const buffer = await file.arrayBuffer()
-      const wb = XLSX.read(buffer, { type: "array" })
+      const ehCsv = /\.csv$/i.test(file.name) || file.type === "text/csv"
+      const wb = ehCsv
+        ? XLSX.read(await file.text(), { type: "string", raw: true })
+        : XLSX.read(await file.arrayBuffer(), { type: "array" })
       const sheet = wb.Sheets[wb.SheetNames[0]]
       const json = XLSX.utils.sheet_to_json<RawRow>(sheet, { defval: "" })
       if (json.length === 0) { toast.error("A planilha está vazia."); return }

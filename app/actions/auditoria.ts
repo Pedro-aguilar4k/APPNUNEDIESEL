@@ -285,22 +285,32 @@ export async function getResumo(id: number): Promise<ResumoRelatorio | null> {
 // Escrita.
 // ---------------------------------------------------------------------------
 
-export async function criarAuditoria(nome: string): Promise<ActionResult<{ id: number }>> {
+export async function criarAuditoria(nome: string): Promise<ActionResult<{ auditoria: Auditoria }>> {
   try {
-    const actor = await requirePermission("conferir")
-    const nomeLimpo = nome.trim()
-    if (!nomeLimpo) return { ok: false, error: "Informe um nome para a auditoria." }
-    const [row] = await db
-      .insert(auditorias)
-      .values({ nome: nomeLimpo, createdBy: actor.id, createdByNome: actor.name })
-      .returning()
-    await registrarLog({ actor, area: "auditoria", acao: "criou", detalhe: `Criou a auditoria "${nomeLimpo}".` })
-    revalidatePath("/estoque/auditoria")
-    return { ok: true, data: { id: row.id } }
-  } catch (error) {
-    return { ok: false, error: error instanceof Error ? error.message : "Erro ao criar auditoria." }
+  const actor = await requirePermission("conferir")
+  const nomeLimpo = nome.trim()
+  if (!nomeLimpo) return { ok: false, error: "Informe um nome para a auditoria." }
+  const [row] = await db
+  .insert(auditorias)
+  .values({ nome: nomeLimpo, createdBy: actor.id, createdByNome: actor.name })
+  .returning()
+  await registrarLog({ actor, area: "auditoria", acao: "criou", detalhe: `Criou a auditoria "${nomeLimpo}".` })
+  revalidatePath("/estoque/auditoria")
+  const auditoria: Auditoria = {
+  id: row.id,
+  nome: row.nome,
+  status: row.status as StatusAuditoria,
+  createdByNome: row.createdByNome,
+  createdAt: row.createdAt.toISOString(),
+  finalizadaEm: row.finalizadaEm ? row.finalizadaEm.toISOString() : null,
+  totalContagens: 0,
+  totalOficial: 0,
   }
-}
+  return { ok: true, data: { auditoria } }
+  } catch (error) {
+  return { ok: false, error: error instanceof Error ? error.message : "Erro ao criar auditoria." }
+  }
+  }
 
 export async function excluirAuditoria(id: number): Promise<ActionResult> {
   try {
